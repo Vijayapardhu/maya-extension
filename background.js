@@ -78,9 +78,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
  if (msg.type === "REVIEW_GET_ANSWERS") {
      (async () => {
          try {
+             const cookies = await new Promise((resolve) => {
+                 chrome.cookies.getAll({ url: "https://api.maya.adityauniversity.in" }, (c) => resolve(c || []));
+             });
+             const headers = { "Content-Type": "application/json" };
+             if (cookies.length) {
+                 headers["Cookie"] = cookies.map((c) => c.name + "=" + c.value).join("; ");
+             }
              const response = await fetch("https://api.maya.adityauniversity.in/node/api/review-grand-assessment", {
                  method: "POST",
-                 headers: { "Content-Type": "application/json" },
+                 headers: headers,
                  body: JSON.stringify({
                      assessment: msg.testId,
                      test_type: "general",
@@ -107,9 +114,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
  if (msg.type === "REVIEW_GET_ANSWER") {
      (async () => {
          try {
+             const cookies = await new Promise((resolve) => {
+                 chrome.cookies.getAll({ url: "https://api.maya.adityauniversity.in" }, (c) => resolve(c || []));
+             });
+             const headers = { "Content-Type": "application/json" };
+             if (cookies.length) {
+                 headers["Cookie"] = cookies.map((c) => c.name + "=" + c.value).join("; ");
+             }
              const response = await fetch("https://api.maya.adityauniversity.in/node/api/review-grand-assessment", {
                  method: "POST",
-                 headers: { "Content-Type": "application/json" },
+                 headers: headers,
                  body: JSON.stringify({
                      assessment: msg.testId,
                      test_type: "general",
