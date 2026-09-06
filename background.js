@@ -130,8 +130,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                      roll_no: msg.rollNo || null
                  })
              });
-             if (!response.ok) throw new Error("HTTP " + response.status);
-             const data = await response.json();
+             const text = await response.text();
+             console.log("[MayaAF] REVIEW_GET_ANSWER status:", response.status, "body:", text.substring(0, 200));
+             if (!response.ok) throw new Error("HTTP " + response.status + ": " + text);
+             const data = JSON.parse(text);
              const items = Array.isArray(data.question_details) ? data.question_details : [];
              const found = items.find(item => item.question_id === msg.questionId);
              if (found && found.answer) {
@@ -140,6 +142,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
                  sendResponse({ ok: false, error: "Answer not found in response" });
              }
          } catch (e) {
+             console.error("[MayaAF] REVIEW_GET_ANSWER error:", e);
              sendResponse({ ok: false, error: String(e) });
          }
      })();
