@@ -1,0 +1,42 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Zip extension
+        run: |
+          zip -r maya-autofill-extension.zip \
+            manifest.json \
+            background.js \
+            content.js \
+            firebase-config.js \
+            hook-injected.js \
+            hook.js \
+            popup.html \
+            popup.js \
+            questions-template.json \
+            README.md \
+            setup.txt \
+            icons/
+
+      - name: Prepare publish folder
+        run: |
+          mkdir publish
+          cp -r website/. publish/
+          cp maya-autofill-extension.zip publish/
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./publish
+          enable_jekyll: false

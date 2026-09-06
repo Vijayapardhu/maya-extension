@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /assets/
+
+Sitemap: https://vijayapardhu.github.io/maya-extension/sitemap.xml

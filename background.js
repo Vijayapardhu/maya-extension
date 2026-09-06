@@ -15,8 +15,25 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const OPENROUTER_API_KEY = "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";
-const DEFAULT_MODEL = "auto";
+let OPENROUTER_API_KEY = "";
+let DEFAULT_MODEL = "auto";
+
+async function loadConfig() {
+  try {
+    const ref = doc(db, "config", "ai");
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.openrouterApiKey) OPENROUTER_API_KEY = data.openrouterApiKey;
+      if (data.model) DEFAULT_MODEL = data.model;
+      console.log("Config loaded from Firebase:", { model: DEFAULT_MODEL, hasKey: !!OPENROUTER_API_KEY });
+    }
+  } catch (e) {
+    console.warn("Failed to load config from Firebase:", e);
+  }
+}
+
+loadConfig();
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "FETCH_QUESTIONS") {
@@ -123,6 +140,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "OPENROUTER_ANSWER") {
     (async () => {
       try {
+        if (!OPENROUTER_API_KEY) {
+          sendResponse({ ok: false, error: "OpenRouter API key not configured in Firebase. Add it to Firestore config/ai document." });
+          return;
+        }
         const prompt = `Answer this multiple choice question. Return ONLY the correct option text (exactly as it appears in the options).
 
 Question: ${msg.question}
@@ -197,6 +218,10 @@ Correct answer (option text only):`;
   if (msg.type === "OPENROUTER_BATCH_ANSWER") {
     (async () => {
       try {
+        if (!OPENROUTER_API_KEY) {
+          sendResponse({ ok: false, error: "OpenRouter API key not configured in Firebase. Add it to Firestore config/ai document." });
+          return;
+        }
         const { questions } = msg;
         const promises = questions.map(async (q) => {
           const prompt = `Answer this multiple choice question. Return ONLY the correct option text (exactly as it appears in the options).

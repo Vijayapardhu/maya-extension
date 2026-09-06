@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Maya AutoPilot - Chrome Extension for Maya Assessments</title>
+  <meta name="description" content="Maya AutoPilot is a zero-input Chrome extension that automatically fills answers on Maya assessments. Supports Grand Assessment and Emp-Skills Deep-Dive.">
+  <meta name="keywords" content="maya, autopilot, chrome extension, auto fill, assessment, grand assessment, emp-skills, deep dive, auto answer, maya aditya university">
+  <meta name="author" content="Vijayapardhu">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://vijayapardhu.github.io/maya-extension/">
+  <link rel="icon" type="image/png" sizes="128x128" href="favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <meta property="og:title" content="Maya AutoPilot - Chrome Extension for Maya Assessments">
+  <meta property="og:description" content="Zero-input Chrome extension that auto-fills Maya assessments. Download as zip and load unpacked.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://vijayapardhu.github.io/maya-extension/">
+  <meta property="og:image" content="https://vijayapardhu.github.io/maya-extension/assets/hero.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Maya AutoPilot - Chrome Extension for Maya Assessments">
+  <meta name="twitter:description" content="Zero-input Chrome extension that auto-fills Maya assessments. Download as zip and load unpacked.">
+  <meta name="twitter:image" content="https://vijayapardhu.github.io/maya-extension/assets/hero.png">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Maya AutoPilot",
+    "applicationCategory": "BrowserExtension",
+    "operatingSystem": "Chrome, Edge",
+    "description": "Zero-input Chrome extension that automatically fills answers on Maya assessments.",
+    "author": {
+      "@type": "Person",
+      "name": "Vijayapardhu"
+    },
+    "url": "https://github.com/Vijayapardhu/maya-extension",
+    "downloadUrl": "https://vijayapardhu.github.io/maya-extension/maya-autofill-extension.zip"
+  }
+  </script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    html, body {
+      overflow: -moz-scrollbars-none;
+      -ms-overflow-style: none;
+    }
+    html::-webkit-scrollbar,
+    body::-webkit-scrollbar {
+      display: none;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #faf8f5;
+      color: #1a1a1a;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .page {
+      width: 100%;
+      min-height: 100vh;
+    }
+
+    /* Full-bleed centered sections */
+    .hero,
+    .download-bar,
+    .content .section {
+      width: 100%;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 64px;
+    }
+
+    .hero {
+      text-align: center;
+      background: #faf8f5;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeUp 0.9s ease-out forwards;
+    }
+
+    .download-bar {
+      background: #1a1a1a;
+      color: #fff;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeUp 0.9s 0.1s ease-out forwards;
+    }
+
+    .content .section {
+      background: #faf8f5;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeUp 0.8s ease-out forwards;
+      flex-direction: column;
+    }
+
+    .content .section:nth-of-type(2) { animation-delay: 0.15s; }
+    .content .section:nth-of-type(3) { animation-delay: 0.2s; }
+    .content .section:nth-of-type(4) { animation-delay: 0.25s; }
+    .content .section:nth-of-type(5) { animation-delay: 0.3s; }
+    .content .section:nth-of-type(6) { animation-delay: 0.35s; }
+    .content .section:nth-of-type(7) { animation-delay: 0.4s; }
+
+    .hero-inner,
+    .download-bar-inner,
+    .section-inner {
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .download-bar-inner {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .section-inner {
+      align-items: stretch;
+    }
+
+    /* Hero */
+    .hero-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: center;
+      text-align: left;
+    }
+
+    .hero-text {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+    }
+
+    .hero-text h1 {
+      text-align: left;
+    }
+
+    .hero-text p {
+      text-align: left;
+      margin: 0 0 32px;
+    }
+
+    .hero-meta {
+      justify-content: flex-start;
+    }
+
+    .hero-visual {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hero h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 5.5rem;
+      font-weight: 700;
+      letter-spacing: -0.05em;
+      line-height: 1;
+      margin-bottom: 28px;
+      color: #1a1a1a;
+    }
+
+    .hero p {
+      font-size: 1.3rem;
+      color: #666;
+      max-width: 540px;
+      margin: 0 auto 48px;
+      font-weight: 400;
+      line-height: 1.5;
+    }
+
+    .hero-meta {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      font-size: 0.9rem;
+      color: #999;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    .hero-meta span {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hero-meta .dot {
+      width: 6px;
+      height: 6px;
+      background: #1a1a1a;
+      border-radius: 50%;
+    }
+
+    /* Download Bar - Redesigned */
+    .download-layout {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 64px;
+      width: 100%;
+      max-width: 1200px;
+    }
+
+    .download-visual {
+      flex: 0 0 55%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .download-visual img {
+      max-width: 100%;
+      max-height: 480px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 20px 40px rgba(0,0,0,0.35));
+    }
+
+    .download-content {
+      flex: 0 0 45%;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    .download-content h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin: 0;
+    }
+
+    .download-content p {
+      color: #aaa;
+      font-size: 1.1rem;
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 18px 36px;
+      background: #fff;
+      color: #1a1a1a;
+      text-decoration: none;
+      font-weight: 600;
+      border-radius: 100px;
+      transition: all 0.3s ease;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.35);
+      background: #f0f0f0;
+    }
+
+    /* Section Headers - stacked label below heading, centered by default */
+    .section-header {
+      width: 100%;
+      margin-bottom: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Left-aligned section headers for zigzag layouts */
+    .section-header.section-header--left {
+      align-items: flex-start;
+      text-align: left;
+    }
+
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #999;
+      white-space: nowrap;
+      order: 2;
+    }
+
+    .section h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin: 0;
+      order: 1;
+    }
+
+    .section h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 32px 0 12px;
+      color: #333;
+      letter-spacing: -0.02em;
+    }
+
+    .section p, .section li {
+      color: #555;
+      margin-bottom: 12px;
+      font-size: 1.05rem;
+      line-height: 1.6;
+    }
+
+    .section ul {
+      padding-left: 24px;
+    }
+
+    .section li {
+      margin-bottom: 10px;
+    }
+
+    .section code {
+      background: #f0efeb;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 0.88em;
+      font-weight: 500;
+    }
+
+    .section-intro {
+      text-align: center;
+      max-width: 640px;
+      margin: 0 auto 40px;
+      color: #888;
+      font-size: 1.05rem;
+      line-height: 1.6;
+    }
+
+    /* Setup section - aligned container */
+    .steps-container {
+      width: 100%;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .steps-container .section-intro {
+      max-width: none;
+      margin-bottom: 32px;
+    }
+
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #999;
+      white-space: nowrap;
+      order: 2;
+    }
+
+    .section h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin: 0;
+      order: 1;
+    }
+
+    .section h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 32px 0 12px;
+      color: #333;
+      letter-spacing: -0.02em;
+    }
+
+    .section p, .section li {
+      color: #555;
+      margin-bottom: 12px;
+      font-size: 1.05rem;
+      line-height: 1.6;
+    }
+
+    .section ul {
+      padding-left: 24px;
+    }
+
+    .section li {
+      margin-bottom: 10px;
+    }
+
+    .section code {
+      background: #f0efeb;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 0.88em;
+      font-weight: 500;
+    }
+
+    .section-intro {
+      text-align: center;
+      max-width: 640px;
+      margin: 0 auto 40px;
+      color: #888;
+      font-size: 1.05rem;
+      line-height: 1.6;
+    }
+
+    /* Natural image styling - integrated into sections */
+    .natural-img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      border-radius: 0;
+      border: none;
+      box-shadow: none;
+    }
+
+    .section-image {
+      width: 100%;
+      max-width: 1000px;
+      margin: 0 auto 40px;
+      text-align: center;
+    }
+
+    .section-image img {
+      max-height: 360px;
+      width: auto;
+      max-width: 100%;
+    }
+
+    /* Zigzag layouts - true two column */
+    .zigzag-layout {
+      display: flex;
+      align-items: center;
+      gap: 64px;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .zigzag-layout.reverse {
+      flex-direction: row-reverse;
+    }
+
+    .zigzag-image {
+      flex: 0 0 45%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .zigzag-image img {
+      max-height: 520px;
+      width: auto;
+      max-width: 100%;
+    }
+
+    .zigzag-content {
+      flex: 0 0 55%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 24px;
+    }
+
+    .zigzag-content .section-header {
+      text-align: center;
+      align-items: center;
+      margin-bottom: 0;
+      padding: 0;
+    }
+
+    .zigzag-content .section-label {
+      text-align: center;
+    }
+
+    .section-header--left .section-label {
+      text-align: left;
+    }
+
+    .zigzag-content .section-intro {
+      text-align: center;
+      margin: 0 0 8px;
+    }
+
+    .zigzag-content p,
+    .zigzag-content a {
+      text-align: center;
+    }
+
+    .zigzag-content .usage-grid {
+      margin-top: 8px;
+    }
+
+    /* Usage Section - better left space usage */
+    .usage-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      width: 100%;
+    }
+
+    .usage-card {
+      background: #fff;
+      border-radius: 24px;
+      padding: 40px;
+      border: 1px solid rgba(0,0,0,0.04);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .usage-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: #1a1a1a;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .usage-card:hover {
+      box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+      transform: translateY(-4px);
+    }
+
+    .usage-card:hover::before {
+      opacity: 1;
+    }
+
+    .usage-card-header {
+      margin-bottom: 20px;
+    }
+
+    .usage-card-header h3 {
+      margin: 0;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: #1a1a1a;
+    }
+
+    .usage-card p {
+      color: #666;
+      line-height: 1.7;
+      margin-bottom: 16px;
+    }
+
+    .usage-card .highlight {
+      display: inline-block;
+      padding: 6px 14px;
+      background: #f0efeb;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-top: 8px;
+    }
+
+    /* Steps - horizontal full width */
+    .steps-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 20px;
+      max-width: 1100px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .step-card {
+      padding: 28px 20px;
+      background: #fff;
+      border-radius: 20px;
+      border: 1px solid rgba(0,0,0,0.04);
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .step-card:hover {
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+      border-color: rgba(0,0,0,0.08);
+      transform: translateY(-2px);
+    }
+
+    .step-num {
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 16px;
+      background: #1a1a1a;
+      color: #fff;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 1.3rem;
+      margin: 0 auto 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .step-card p {
+      font-size: 0.95rem;
+      color: #555;
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    .step-card strong {
+      color: #1a1a1a;
+      font-weight: 600;
+    }
+
+    /* Tech Grid */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      max-width: 1000px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .tech-card {
+      padding: 24px;
+      background: #fff;
+      border-radius: 16px;
+      border: 1px solid rgba(0,0,0,0.04);
+      transition: all 0.2s ease;
+    }
+
+    .tech-card:hover {
+      box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+      border-color: rgba(0,0,0,0.08);
+    }
+
+    .tech-name {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 600;
+      font-size: 1.1rem;
+      color: #1a1a1a;
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+    }
+
+    .tech-desc {
+      font-size: 0.95rem;
+      color: #777;
+      line-height: 1.5;
+    }
+
+    /* CTA Block */
+    .cta-block {
+      text-align: center;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .cta-block p {
+      font-size: 1.05rem;
+      color: #555;
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    /* Troubleshooting */
+    .troubleshoot-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+      max-width: 1000px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .troubleshoot-card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 32px;
+      border: 1px solid rgba(0,0,0,0.04);
+      transition: all 0.3s ease;
+    }
+
+    .troubleshoot-card:hover {
+      box-shadow: 0 12px 32px rgba(0,0,0,0.06);
+      border-color: rgba(0,0,0,0.08);
+      transform: translateY(-2px);
+    }
+
+    .troubleshoot-body h3 {
+      margin: 0 0 8px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #1a1a1a;
+      letter-spacing: -0.01em;
+    }
+
+    .troubleshoot-body p {
+      margin: 0;
+      color: #666;
+      line-height: 1.6;
+      font-size: 0.95rem;
+    }
+
+    /* Contributors */
+    .contributor-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .contributor {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: #faf8f5;
+      border-radius: 10px;
+      border: 1px solid rgba(0,0,0,0.04);
+      text-decoration: none;
+      color: #1a1a1a;
+      font-weight: 500;
+      font-size: 0.9rem;
+      transition: all 0.2s ease;
+    }
+
+    .contributor:hover {
+      background: #f0efeb;
+      border-color: rgba(0,0,0,0.08);
+    }
+
+    .contributor img {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+    }
+
+    a {
+      color: #1a1a1a;
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      border-bottom: 2px solid transparent;
+    }
+
+    a:hover {
+      border-bottom-color: #1a1a1a;
+    }
+
+    .footer {
+      width: 100%;
+      padding: 120px 64px;
+      text-align: center;
+      background: #faf8f5;
+    }
+
+    .footer img {
+      max-height: 400px;
+      width: auto;
+      max-width: 100%;
+      margin: 0 auto 32px;
+      display: block;
+    }
+
+    .footer p {
+      color: #aaa;
+      font-size: 1rem;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+    }
+
+    @keyframes fadeUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 900px) {
+      .hero,
+      .download-bar,
+      .content .section {
+        padding: 48px 24px;
+        min-height: auto;
+      }
+
+      .hero h1 { font-size: 3.5rem; }
+
+      .hero-inner {
+        grid-template-columns: 1fr;
+        gap: 40px;
+        text-align: center;
+      }
+
+      .hero-text {
+        align-items: center;
+        text-align: center;
+      }
+
+      .hero-text h1,
+      .hero-text p {
+        text-align: center;
+      }
+
+      .hero-meta {
+        justify-content: center;
+      }
+
+      .hero-visual img {
+        max-height: 320px;
+      }
+
+      .download-layout {
+        flex-direction: column;
+        gap: 40px;
+      }
+
+      .download-visual,
+      .download-content {
+        flex: 0 0 100%;
+        width: 100%;
+      }
+
+      .download-visual img {
+        max-height: 320px;
+      }
+
+      .download-content {
+        align-items: center;
+        text-align: center;
+      }
+
+      .zigzag-layout {
+        flex-direction: column !important;
+        gap: 32px;
+      }
+
+      .zigzag-image,
+      .zigzag-content {
+        flex: 0 0 100%;
+        width: 100%;
+        text-align: center;
+        align-items: center;
+      }
+
+      .zigzag-image img {
+        max-height: 320px;
+      }
+
+      .usage-grid { grid-template-columns: 1fr; gap: 24px; max-width: 100%; }
+      .two-col { grid-template-columns: 1fr; gap: 32px; max-width: 100%; }
+      .steps-row { grid-template-columns: 1fr; max-width: 100%; }
+      .troubleshoot-grid { grid-template-columns: 1fr; }
+      .section h2 { font-size: 2rem; }
+      .section-header { margin-bottom: 32px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="hero" id="home">
+      <div class="hero-inner">
+        <div class="hero-text">
+          <h1>Maya AutoPilot</h1>
+          <p>Zero-input Chrome extension for Maya assessments. Answers captured directly from the page. No APIs. No drift.</p>
+          <div class="hero-meta">
+            <span><span class="dot"></span> v1.3.9</span>
+            <span><span class="dot"></span> Chrome & Edge</span>
+            <span><span class="dot"></span> Open Source</span>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <img src="assets/hero.png" alt="Maya AutoPilot" class="natural-img">
+        </div>
+      </div>
+    </div>
+
+    <div class="download-bar" id="download">
+      <div class="download-bar-inner">
+        <div class="download-layout">
+          <div class="download-visual">
+            <img src="assets/at download.png" alt="Download Maya AutoPilot">
+          </div>
+          <div class="download-content">
+            <h2>Get the Extension</h2>
+            <p>Packaged as a .zip. Load unpacked and you're done.</p>
+            <a href="maya-autofill-extension.zip" class="btn">Download .zip</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="section" id="how-to-use">
+        <div class="section-inner">
+          <div class="zigzag-layout">
+            <div class="zigzag-image">
+              <img src="assets/how to use.png" alt="How to Use">
+            </div>
+            <div class="zigzag-content">
+              <div class="section-header section-header--left">
+                <span class="section-label">Usage</span>
+                <h2>How to Use</h2>
+              </div>
+              <p class="section-intro">Two modes. One philosophy: minimal effort, maximum accuracy.</p>
+              <div class="usage-grid">
+                <div class="usage-card">
+                  <div class="usage-card-header">
+                    <h3>Grand Assessment</h3>
+                  </div>
+                  <p>Open the test page. The extension silently captures every question from the page's own network data and fills all answers automatically.</p>
+                  <span class="highlight">No manual input needed</span>
+                </div>
+                <div class="usage-card">
+                  <div class="usage-card-header">
+                    <h3>Emp-Skills Deep-Dive</h3>
+                  </div>
+                  <p>Open a deep-dive test. Each question is answered and the <strong>Next Question</strong> button advances the flow automatically.</p>
+                  <span class="highlight">Question after question</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="setup">
+        <div class="section-inner">
+          <div class="section-header">
+            <span class="section-label">Installation</span>
+            <h2>Setup</h2>
+          </div>
+          <div class="steps-container">
+            <p class="section-intro">Five steps. No account. No config files.</p>
+            <div class="steps-row">
+              <div class="step-card">
+                <div class="step-num">1</div>
+                <p><strong>Unzip</strong> the downloaded file to any folder.</p>
+              </div>
+              <div class="step-card">
+                <div class="step-num">2</div>
+                <p>Open <code>chrome://extensions</code> (or <code>edge://extensions</code>).</p>
+              </div>
+              <div class="step-card">
+                <div class="step-num">3</div>
+                <p><strong>Enable Developer mode</strong> using the top-right toggle.</p>
+              </div>
+              <div class="step-card">
+                <div class="step-num">4</div>
+                <p>Click <strong>Load unpacked</strong> and select the unzipped folder.</p>
+              </div>
+              <div class="step-card">
+                <div class="step-num">5</div>
+                <p>Reload the test page. Answers fill automatically.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-inner">
+          <div class="section-header">
+            <span class="section-label">Features</span>
+            <h2>What It Does</h2>
+          </div>
+          <p class="section-intro">Built for speed, accuracy, and complete privacy.</p>
+          <div class="tech-grid">
+            <div class="tech-card">
+              <div class="tech-name">Zero Input Required</div>
+              <div class="tech-desc">Load the page and answers fill automatically. No popup, no configuration.</div>
+            </div>
+            <div class="tech-card">
+              <div class="tech-name">Page-Accurate Answers</div>
+              <div class="tech-desc">Captures questions from the page's own network data. No API drift, no mismatches.</div>
+            </div>
+            <div class="tech-card">
+              <div class="tech-name">Smart Retry Logic</div>
+              <div class="tech-desc">Waits for data, retries on failure, and self-heals on deep-dive tests.</div>
+            </div>
+            <div class="tech-card">
+              <div class="tech-name">Privacy First</div>
+              <div class="tech-desc">No external API calls unless you enable Firebase caching or OpenRouter AI.</div>
+            </div>
+            <div class="tech-card">
+              <div class="tech-name">SPA Navigation</div>
+              <div class="tech-desc">Works with dashboard navigation. No manual refresh needed between tests.</div>
+            </div>
+            <div class="tech-card">
+              <div class="tech-name">Live Progress Panel</div>
+              <div class="tech-desc">Draggable floating panel shows real-time status, progress ring, and controls.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-inner">
+          <div class="section-header">
+            <span class="section-label">Tech Stack</span>
+            <h2>What I Used</h2>
+          </div>
+          <p class="section-intro">Built on proven browser extension patterns. No heavy frameworks.</p>
+          <div class="tech-grid">
+            <div class="tech-card">
+              <div class="tech-name">Manifest V3</div>
+              <div class="tech-desc">Chrome's current extension standard with service workers</div>
+            </div>
+            <div class="tech-card">
+              <div class="tech-name">Fetch / XHR Interception</div>
+              <div class="tech-desc">Captures exact question data from the page</div>
+            </div>
+            <div class="tech-card">
+              <div class="tech-name">Firebase</div>
+              <div class="tech-desc">Optional caching layer for answer persistence</div>
+            </div>
+            <div class="tech-card">
+              <div class="tech-name">OpenRouter AI</div>
+              <div class="tech-desc">Optional answer generation when cache is empty</div>
+            </div>
+            <div class="tech-card">
+              <div class="tech-name">Vanilla JavaScript</div>
+              <div class="tech-desc">No build tools, no dependencies, pure JS</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-inner">
+          <div class="section-header">
+            <span class="section-label">Troubleshooting</span>
+            <h2>Common Fixes</h2>
+          </div>
+          <p class="section-intro">Quick solutions for the most common issues.</p>
+          <div class="troubleshoot-grid">
+            <div class="troubleshoot-card">
+              <div class="troubleshoot-body">
+                <h3>Panel stuck on "Loading..."</h3>
+                <p>On deep-dive, the extension self-heals by fetching matching questions itself. Give it ~10 seconds. If the page shows no question, reload the page.</p>
+              </div>
+            </div>
+            <div class="troubleshoot-card">
+              <div class="troubleshoot-body">
+                <h3>A question remains unanswered</h3>
+                <p>Click <strong>Autofill all</strong>. The run re-checks every unanswered question and logs what failed in the console.</p>
+              </div>
+            </div>
+            <div class="troubleshoot-card">
+              <div class="troubleshoot-body">
+                <h3>CSP inline-script error</h3>
+                <p>You are on the old build. Remove the old extension, load this new version, and reload the test page.</p>
+              </div>
+            </div>
+            <div class="troubleshoot-card">
+              <div class="troubleshoot-body">
+                <h3>Extension does nothing</h3>
+                <p>Make sure the URL is exactly <code>/grand-assessment/&lt;id&gt;</code> or <code>/emp-skills-deep-dive-in/&lt;id&gt;</code>, you are logged in, and the question card is visible.</p>
+              </div>
+            </div>
+            <div class="troubleshoot-card">
+              <div class="troubleshoot-body">
+                <h3>Question keeps reloading</h3>
+                <p>The same question failed 3 times. Further reloads are paused to avoid loops. Click <strong>Retry</strong> to force one more attempt.</p>
+              </div>
+            </div>
+            <div class="troubleshoot-card">
+              <div class="troubleshoot-body">
+                <h3>Old version persists</h3>
+                <p>Remove all "Maya AutoPilot" entries from <code>chrome://extensions</code>, unzip the new folder, and load it again.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-inner">
+          <div class="zigzag-layout reverse">
+            <div class="zigzag-image">
+              <img src="assets/contibutons.png" alt="Contributors">
+            </div>
+            <div class="zigzag-content">
+              <div class="section-header section-header--left">
+                <span class="section-label">Community</span>
+                <h2>Contributors</h2>
+              </div>
+              <p>Built by the community. Every contribution, big or small, helps make this extension better for everyone.</p>
+              <div class="contributor-row">
+                <a href="https://github.com/Vijayapardhu" target="_blank" rel="noopener" class="contributor">
+                  <img src="https://github.com/Vijayapardhu.png?size=48" alt="Vijayapardhu">
+                  <span>Vijayapardhu</span>
+                </a>
+              </div>
+              <a href="https://github.com/Vijayapardhu/maya-extension/graphs/contributors" target="_blank" rel="noopener">View all contributors on GitHub →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-inner">
+          <div class="zigzag-layout">
+            <div class="zigzag-image">
+              <img src="assets/issues.png" alt="Report Issues">
+            </div>
+            <div class="zigzag-content">
+              <div class="section-header section-header--left">
+                <span class="section-label">Feedback</span>
+                <h2>Report Issues</h2>
+              </div>
+              <p>Found a mismatch, a missed question, or a UI bug? <br>Open an issue and I'll take a look.</p>
+              <a href="https://github.com/Vijayapardhu/maya-extension/issues" target="_blank" rel="noopener">github.com/Vijayapardhu/maya-extension/issues →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-inner">
+          <div class="zigzag-layout reverse">
+            <div class="zigzag-image">
+              <img src="assets/community.png" alt="Contribute">
+            </div>
+            <div class="zigzag-content">
+              <div class="section-header section-header--left">
+                <span class="section-label">Community</span>
+                <h2>Contribute</h2>
+              </div>
+              <p>Fork, branch, and open a pull request. All contributions are welcome.</p>
+              <a href="https://github.com/Vijayapardhu/maya-extension" target="_blank" rel="noopener">github.com/Vijayapardhu/maya-extension →</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <img src="assets/end of the page.png" alt="End" class="natural-img">
+      <p>Maya AutoPilot · Designed for precision · Built with vanilla web technologies</p>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    });
+  </script>
+</body>
+</html>

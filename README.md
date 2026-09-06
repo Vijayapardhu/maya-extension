@@ -39,6 +39,27 @@ answered (and submitted, for deep-dive) automatically.
 3. Click **Load unpacked** and select the `maya-autofill-extension` folder.
 4. Reload the test page. Questions are filled automatically - no popup needed.
 
+## AI Configuration (Firebase Secured)
+
+The OpenRouter AI API key and model are **not** stored in the extension code.
+They are fetched from Firebase Firestore at runtime, so they never appear in
+the packaged zip or public repo.
+
+### Setup
+
+1. Open your Firebase project: **Firestore Database**.
+2. Create a document at path: `config / ai`
+3. Add these fields:
+   - `openrouterApiKey` (string): your OpenRouter API key
+   - `model` (string): model name, e.g. `auto`, `google/gemini-2.0-flash-exp:free`
+4. Save the document.
+5. Reload the extension. The background service worker will fetch the config
+   automatically on startup.
+
+If the config is missing, the extension still works for page-captured and
+Firebase-cached answers; AI fallback is simply disabled until the config is
+added.
+
 ## Options (extension popup - all optional)
 
 - **Auto-run when questions load** (default on)
@@ -59,13 +80,18 @@ answered (and submitted, for deep-dive) automatically.
   unanswered question and logs what failed (e.g. "no-option (answer: '...')").
 - The page shows CSP errors in console -> that is the *old* build's hook. Make
   sure the extension card reads the latest version and reload the page.
+- **AI not working** -> check that `config/ai` exists in Firestore with
+  `openrouterApiKey` and `model` fields. The background service worker logs
+  config load status to the console.
+- **Same question keeps reloading** -> reloads are paused after 3 failures to
+  avoid loops. Click **Retry** to force one more attempt.
 
 ## Files
 
-- `manifest.json` - MV3 manifest (v1.3.8, "Maya AutoPilot")
+- `manifest.json` - MV3 manifest (v1.3.9, "Maya AutoPilot")
 - `hook.js` - injects `hook-injected.js` (external extension file, CSP-safe)
 - `hook-injected.js` - main-world fetch/XHR capture
 - `content.js` - matching, clicking, sweep engine, deep-dive flow, floating panel
-- `background.js` - unused legacy API fallback (kept for reference)
+- `background.js` - Firebase + OpenRouter AI service worker (config loaded from Firestore)
 - `popup.html` / `popup.js` - optional settings and paste-JSON fallback
-- `icons/` - extension icons (green rounded square with white checkmark)
+- `icons/` - extension icons
