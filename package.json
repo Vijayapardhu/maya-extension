@@ -1,0 +1,12 @@
+{
+  "name": "maya-autofill-extension",
+  "version": "1.3.9",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0",
+    "jsdom": "^24.0.0"
+  }
+}

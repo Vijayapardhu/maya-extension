@@ -3,16 +3,27 @@
   window.__mayaAFHook = true;
   const TARGETS = ["get-grand-assessment-questions-by-id", "get-random-deep-dive-question"];
   const isTarget = (url) => !!url && TARGETS.some((t) => String(url).includes(t));
-  const post = (data) => {
+const post = (data) => {
     try {
       window.postMessage({ source: "maya-af-hook", type: "questions", data: data }, "*");
-      document.documentElement.setAttribute("data-maya-af-questions", JSON.stringify(data));
     } catch (e) {}
   };
-  const postMeta = (meta) => {
+const postMeta = (meta) => {
     try {
       window.postMessage({ source: "maya-af-hook", type: "meta", data: meta }, "*");
-      document.documentElement.setAttribute("data-maya-af-meta", JSON.stringify(meta));
+    } catch (e) {}
+  };
+  const storeQuestions = (data) => {
+    try {
+      const raw = JSON.stringify(data);
+      document.documentElement.setAttribute("data-maya-af-questions", raw);
+    } catch (e) {}
+  };
+  const storeMeta = (meta) => {
+    try {
+      if (meta) {
+        document.documentElement.setAttribute("data-maya-af-meta", JSON.stringify(meta));
+      }
     } catch (e) {}
   };
   const extractMeta = (body) => {
@@ -37,7 +48,12 @@
         const meta = extractMeta(args[1] && args[1].body);
         if (meta) postMeta(meta);
         p.then((resp) => {
-          try { resp.clone().json().then(post).catch(() => {}); } catch (e) {}
+          try {
+            resp.clone().json().then((data) => {
+              post(data);
+              storeQuestions(data);
+            }).catch(() => {});
+          } catch (e) {}
         }).catch(() => {});
       }
       return p;
@@ -55,11 +71,13 @@
     this.addEventListener("load", function () {
       try {
         if (isTarget(this.__mayaAFUrl) && this.responseText) {
-          post(JSON.parse(this.responseText));
+          const data = JSON.parse(this.responseText);
+          post(data);
+          storeQuestions(data);
         }
       } catch (e) {}
     });
-return origSend.apply(this, args);
-    };
+    return origSend.apply(this, args);
+  };
   document.documentElement.setAttribute("data-maya-af-hook-installed", "1");
   })();

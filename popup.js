@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
 
-const defaults = { autoRun: true, autoAdvance: true, usePastedJson: false, questionsJson: "" };
+const defaults = { autoRun: true, autoAdvance: true, usePastedJson: false, questionsJson: "", useReviewApi: true, useFirebase: true, useAI: true };
 
 function hasValidJson(raw) {
   try {
@@ -16,8 +16,14 @@ async function load() {
   const s = await chrome.storage.local.get(defaults);
   const runEl = $("autoRun");
   const advEl = $("autoAdvance");
+  const reviewEl = $("useReviewApi");
+  const firebaseEl = $("useFirebase");
+  const aiEl = $("useAI");
   if (runEl) runEl.checked = s.autoRun;
   if (advEl) advEl.checked = s.autoAdvance;
+  if (reviewEl) reviewEl.checked = s.useReviewApi;
+  if (firebaseEl) firebaseEl.checked = s.useFirebase;
+  if (aiEl) aiEl.checked = s.useAI;
   const valid = hasValidJson(s.questionsJson);
   if (valid) {
     $("jsonInput").value = typeof s.questionsJson === "string" ? s.questionsJson : JSON.stringify(s.questionsJson, null, 2);
@@ -35,7 +41,7 @@ async function load() {
   checkCachedCount();
 }
 
-["autoRun", "autoAdvance"].forEach((id) => {
+["autoRun", "autoAdvance", "useReviewApi", "useFirebase", "useAI"].forEach((id) => {
   $(id).addEventListener("change", async (e) => {
     await chrome.storage.local.set({ [id]: e.target.checked });
   });

@@ -13,17 +13,18 @@
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const waitFor = (fn, timeout = 3000, interval = 40) =>
-    new Promise((resolve) => {
-      const t0 = Date.now();
-      (function poll() {
-        let done = false;
-        try { done = fn(); } catch (e) { /* ignore */ }
-        if (done) return resolve(true);
-        if (Date.now() - t0 > timeout) return resolve(false);
-        setTimeout(poll, interval);
-      })();
-    });
+const waitFor = (fn, timeout = 3000, interval = 40) =>
+     new Promise((resolve) => {
+       const t0 = Date.now();
+       (function poll() {
+         if (abortRequested) return resolve(false);
+         let done = false;
+         try { done = fn(); } catch (e) { /* ignore */ }
+         if (done) return resolve(true);
+         if (Date.now() - t0 > timeout) return resolve(false);
+         setTimeout(poll, interval);
+       })();
+     });
 
   function decodeEntities(s) {
     const ta = document.createElement("textarea");
@@ -32,19 +33,30 @@
   }
 
   /* Mirrors the page's fullyDecodeString(): he.decode -> \uXXXX -> strip tags -> &nbsp; -> \n -> <br/> -> trim */
-  function decode(s) {
+function decode(s) {
     if (!s || typeof s !== "string") return "";
     try {
-      let d = decodeEntities(s);
-      d = d.replace(/\\u([\dA-F]{4})/gi, (m, h) => String.fromCharCode(parseInt(h, 16)));
-      d = d.replace(/<[^>]+>/g, "");
-      d = d.replace(/^&nbsp;/, "").replace(/&nbsp;/g, "");
-      d = d.replace(/\\r\\n|\\n|\\r/g, "<br/>");
-      return d.trim();
+        let d = decodeEntities(s);
+        d = d.replace(/\\u([\dA-F]{4})/gi, (m, h) => String.fromCharCode(parseInt(h, 16)));
+        d = d.replace(/<[^>]+>/g, "");
+        d = d.replace(/^&nbsp;/, "").replace(/&nbsp;/g, "");
+        d = d.replace(/\\r\\n|\\n|\\r/g, "<br/>");
+        return d.trim();
     } catch (e) {
-      return s;
+        return s;
     }
   }
+
+  const post = (data) => {
+    try {
+      window.postMessage({ source: "maya-af-hook", type: "questions", data: data }, "*");
+    } catch (e) {}
+  };
+const postMeta = (meta) => {
+    try {
+      window.postMessage({ source: "maya-af-hook", type: "meta", data: meta }, "*");
+    } catch (e) {}
+  };
 
   const normalize = (s) =>
     decode(s).replace(/<br\/>/gi, " ").replace(/\s+/g, " ").trim().toLowerCase();
@@ -55,6 +67,9 @@
   let byText = new Map();
   let autoRun = true;
   let autoAdvance = true;
+  let useReviewApi = true;
+  let useFirebase = true;
+  let useAI = true;
   let running = false;
   let abortRequested = false;
   let matched = 0;
@@ -86,11 +101,15 @@
       return captureSingleQuestion(data);
     }
     const qs = parseQuestions(data);
-    if (!qs.length) return;
+    if (!qs.length) {
+      console.warn("[MayaAF] Captured data has no questions:", data);
+      return;
+    }
     if (dataSource === "captured") return;
     const wasFallback = dataSource !== "captured";
     dataSource = "captured";
     setQuestions(qs);
+    console.log("[MayaAF] Captured questions:", apiQuestions.length);
     setStatus("Answers captured from the page's network request: " + apiQuestions.length + " questions");
     updateProgress();
     flashPanel();
@@ -123,9 +142,11 @@
 
   window.addEventListener("message", (e) => {
     if (e.data && e.data.source === "maya-af-hook" && e.data.type === "questions") {
+      console.log("[MayaAF] Received questions via message:", e.data.data);
       useCapturedData(e.data.data);
     } else if (e.data && e.data.source === "maya-af-hook" && e.data.type === "meta") {
       capturedMeta = e.data.data || null;
+      console.log("[MayaAF] Received meta:", capturedMeta);
     }
   });
 
@@ -166,146 +187,274 @@
     });
   }
 
-  async function loadFirebaseAndAI() {
-    if (!ASSESS_ID) return;
-    try {
-      const resp = await bgMsg("FIREBASE_GET_ANSWERS", { testId: ASSESS_ID });
-      if (resp.ok && resp.answers) {
-        for (const q of apiQuestions) {
-          if (resp.answers[q._id]) {
-            q.answer = resp.answers[q._id];
-          }
-        }
-        if (Object.keys(resp.answers).length > 0) {
-          firebaseEnabled = true;
-          dataSource = "firebase";
-          byText = new Map(apiQuestions.map((q) => [normalize(q.question), q]));
-          setStatus(`Loaded ${Object.keys(resp.answers).length} answers from Firebase`);
-          flashPanel();
-        }
-      }
-    } catch (e) {
-      console.warn("Firebase load failed:", e);
-    }
-  }
+async function loadFirebaseAndAI() {
+     if (abortRequested) return;
+     if (!ASSESS_ID) return;
+     console.log("[MayaAF] loadFirebaseAndAI start, useReviewApi:", useReviewApi, "useFirebase:", useFirebase);
+     
+     // Try to get answers from the review endpoint first
+     if (useReviewApi) {
+       try {
+         if (abortRequested) return;
+         const resp = await bgMsg("REVIEW_GET_ANSWERS", { testId: ASSESS_ID, rollNo: capturedMeta?.roll_no ?? null });
+         if (abortRequested) return;
+         console.log("[MayaAF] REVIEW_GET_ANSWERS resp:", resp.ok ? "ok, answers=" + Object.keys(resp.answers || {}).length : "error: " + (resp.error || "none"));
+         if (resp.ok && resp.answers) {
+           for (const q of apiQuestions) {
+             if (abortRequested) return;
+             if (resp.answers[q._id]) {
+               q.answer = resp.answers[q._id];
+             }
+           }
+           if (abortRequested) return;
+           if (Object.keys(resp.answers).length > 0) {
+             firebaseEnabled = true;
+             dataSource = "review";
+             byText = new Map(apiQuestions.map((q) => [normalize(q.question), q]));
+             setStatus(`Loaded ${Object.keys(resp.answers).length} answers from review endpoint`);
+             flashPanel();
+             return; // Success, no need to try Firebase
+           }
+         }
+       } catch (e) {
+         if (abortRequested) return;
+         console.warn("Review endpoint load failed:", e);
+       }
+     }
+     
+     // Fall back to Firebase if review endpoint didn't work
+     if (useFirebase) {
+       try {
+         if (abortRequested) return;
+         const resp = await bgMsg("FIREBASE_GET_ANSWERS", { testId: ASSESS_ID });
+         if (abortRequested) return;
+         console.log("[MayaAF] FIREBASE_GET_ANSWERS resp:", resp.ok ? "ok, answers=" + Object.keys(resp.answers || {}).length : "error: " + (resp.error || "none"));
+         if (resp.ok && resp.answers) {
+           for (const q of apiQuestions) {
+             if (abortRequested) return;
+             if (resp.answers[q._id]) {
+               q.answer = resp.answers[q._id];
+             }
+           }
+           if (abortRequested) return;
+           if (Object.keys(resp.answers).length > 0) {
+             firebaseEnabled = true;
+             dataSource = "firebase";
+             byText = new Map(apiQuestions.map((q) => [normalize(q.question), q]));
+             setStatus(`Loaded ${Object.keys(resp.answers).length} answers from Firebase`);
+             flashPanel();
+           }
+         }
+       } catch (e) {
+         if (abortRequested) return;
+         console.warn("Firebase load failed:", e);
+       }
+     }
+     console.log("[MayaAF] loadFirebaseAndAI done");
+   }
 
-  async function getAnswerFromAI(question, options) {
-    try {
-      const resp = await bgMsg("OPENROUTER_ANSWER", { question, options });
-      if (resp.ok && resp.answer) {
-        return resp.answer;
-      }
-      console.warn("OpenRouter AI error:", resp.error);
-    } catch (e) {
-      console.warn("OpenRouter AI error:", e);
-    }
-    return null;
-  }
+async function getAnswerFromAI(question, options) {
+     if (abortRequested) return null;
+     if (!useAI) return null;
+     try {
+       if (abortRequested) return null;
+        const resp = await bgMsg("OPENROUTER_ANSWER", { question, options, _useAI: useAI });
+       if (abortRequested) return null;
+       if (resp.ok && resp.answer) {
+         return resp.answer;
+       }
+       console.warn("OpenRouter AI error:", resp.error);
+     } catch (e) {
+       if (abortRequested) return null;
+       console.warn("OpenRouter AI error:", e);
+     }
+     if (abortRequested) return null;
+     return null;
+   }
 
-  async function saveAnswerToFirebase(questionId, questionText, answer) {
-    if (!ASSESS_ID || !firebaseEnabled) return;
-    try {
-      await bgMsg("FIREBASE_SAVE_ANSWER", { testId: ASSESS_ID, questionId, questionText, answer });
-    } catch (e) {
-      console.warn("Firebase save failed:", e);
-    }
-  }
-
-  async function resolveAnswer(q) {
-    if (q.answer) return q.answer;
-    
-    const options = {
-      option1: q.option1,
-      option2: q.option2,
-      option3: q.option3,
-      option4: q.option4
-    };
-    
-    if (firebaseEnabled && ASSESS_ID && q._id) {
+ async function saveAnswerToFirebase(questionId, questionText, answer) {
+      if (abortRequested) return;
+      if (!ASSESS_ID || !useFirebase) return;
       try {
-        const resp = await bgMsg("FIREBASE_GET_ANSWER", { testId: ASSESS_ID, questionId: q._id });
-        if (resp.ok && resp.answer) {
-          q.answer = resp.answer;
-          dataSource = "firebase";
-          return resp.answer;
-        }
-      } catch (e) { /* ignore */ }
-    }
-    
-    const aiAnswer = await getAnswerFromAI(q.question, options);
-    if (aiAnswer) {
-      q.answer = aiAnswer;
-      dataSource = "ai";
-      if (firebaseEnabled && ASSESS_ID && q._id) {
-        await saveAnswerToFirebase(q._id, q.question, aiAnswer);
+        if (abortRequested) return;
+        await bgMsg("FIREBASE_SAVE_ANSWER", { testId: ASSESS_ID, questionId: questionId, questionText: questionText, answer: answer });
+      } catch (e) {
+        if (abortRequested) return;
+        console.warn("Firebase save failed:", e);
       }
-      return aiAnswer;
     }
-    
-    return null;
-  }
 
-  async function resolveAnswersBatch(questions, onProgress) {
-    const uncached = questions.filter(q => !q.answer);
-    if (!uncached.length) return;
-    
-    const toFetch = [];
-    for (const q of uncached) {
+ async function resolveAnswer(q) {
+      if (abortRequested) return null;
+      if (q.answer) {
+        console.log("[MayaAF] resolveAnswer already has answer:", q._id, q.answer);
+        return q.answer;
+      }
+      
       const options = {
         option1: q.option1,
         option2: q.option2,
         option3: q.option3,
         option4: q.option4
       };
+      console.log("[MayaAF] resolveAnswer start:", q._id, "useReviewApi:", useReviewApi, "useFirebase:", useFirebase, "useAI:", useAI);
       
-      if (firebaseEnabled && ASSESS_ID && q._id) {
+      // Try to get answer from review endpoint (individual)
+      if (useReviewApi) {
         try {
+          if (abortRequested) return null;
+          const resp = await bgMsg("REVIEW_GET_ANSWER", { testId: ASSESS_ID, questionId: q._id, rollNo: capturedMeta?.roll_no ?? null });
+          if (abortRequested) return null;
+          console.log("[MayaAF] REVIEW_GET_ANSWER resp:", resp.ok ? "ok, answer=" + resp.answer : "error: " + (resp.error || "none"));
+          if (resp.ok && resp.answer) {
+            q.answer = resp.answer;
+            dataSource = "review";
+            if (useFirebase && ASSESS_ID && q._id) {
+              await saveAnswerToFirebase(q._id, q.question, resp.answer);
+            }
+            return resp.answer;
+          }
+        } catch (e) {
+          if (abortRequested) return null;
+          console.warn("Review endpoint individual answer failed:", e);
+        }
+      }
+      
+      if (useFirebase && ASSESS_ID && q._id) {
+        try {
+          if (abortRequested) return null;
           const resp = await bgMsg("FIREBASE_GET_ANSWER", { testId: ASSESS_ID, questionId: q._id });
+          if (abortRequested) return null;
+          console.log("[MayaAF] FIREBASE_GET_ANSWER resp:", resp.ok ? "ok, answer=" + resp.answer : "error: " + (resp.error || "none"));
           if (resp.ok && resp.answer) {
             q.answer = resp.answer;
             dataSource = "firebase";
-            continue;
+            return resp.answer;
           }
         } catch (e) { /* ignore */ }
       }
       
-      toFetch.push({ questionId: q._id, question: q.question, options });
-    }
-    
-    if (!toFetch.length) return;
-    
-    if (onProgress) onProgress(`Fetching ${toFetch.length} answers from AI...`);
-    
-    try {
-      const resp = await bgMsg("OPENROUTER_BATCH_ANSWER", { questions: toFetch });
-      if (resp.ok && resp.results) {
-        const toSave = [];
-        let success = 0;
-        for (const result of resp.results) {
-          const q = uncached.find(uq => uq._id === result.questionId);
-          if (q && result.ok && result.answer) {
-            q.answer = result.answer;
-            dataSource = "ai";
-            success++;
-            if (firebaseEnabled && ASSESS_ID && q._id) {
-              toSave.push({ testId: ASSESS_ID, questionId: q._id, questionText: q.question, answer: result.answer });
-            }
-          }
+      if (abortRequested) return null;
+      const aiAnswer = await getAnswerFromAI(q.question, options);
+      if (abortRequested) return null;
+      console.log("[MayaAF] getAnswerFromAI result:", aiAnswer);
+      if (aiAnswer) {
+        q.answer = aiAnswer;
+        dataSource = "ai";
+        if (useFirebase && ASSESS_ID && q._id) {
+          await saveAnswerToFirebase(q._id, q.question, aiAnswer);
         }
-        if (onProgress) onProgress(`AI answered ${success}/${toFetch.length} questions`);
-        
-        // Save all to Firebase in parallel
-        if (toSave.length) {
-          if (onProgress) onProgress(`Saving ${toSave.length} answers to Firebase...`);
-          await Promise.all(toSave.map(item => bgMsg("FIREBASE_SAVE_ANSWER", item)));
-          if (onProgress) onProgress("Saved to Firebase");
-        }
+        return aiAnswer;
       }
-    } catch (e) {
-      console.warn("Batch AI error:", e);
-      if (onProgress) onProgress("AI fetch failed");
+      
+      if (abortRequested) return null;
+      console.log("[MayaAF] resolveAnswer no answer found:", q._id);
+      return null;
     }
-  }
+
+async function resolveAnswersBatch(questions, onProgress) {
+     if (abortRequested) return;
+     const uncached = questions.filter(q => !q.answer);
+     console.log("[MayaAF] resolveAnswersBatch:", questions.length, "total,", uncached.length, "uncached");
+     if (!uncached.length) return;
+     
+     const toFetch = [];
+     for (const q of uncached) {
+       if (abortRequested) return;
+       const options = {
+         option1: q.option1,
+         option2: q.option2,
+         option3: q.option3,
+         option4: q.option4
+       };
+       
+       // Try to get answer from review endpoint (individual)
+       if (useReviewApi) {
+         try {
+           if (abortRequested) return;
+           const resp = await bgMsg("REVIEW_GET_ANSWER", { testId: ASSESS_ID, questionId: q._id, rollNo: capturedMeta?.roll_no ?? null });
+           if (abortRequested) return;
+           console.log("[MayaAF] REVIEW_GET_ANSWER batch resp:", resp.ok ? "ok, answer=" + resp.answer : "error: " + (resp.error || "none"));
+           if (resp.ok && resp.answer) {
+             q.answer = resp.answer;
+             dataSource = "review";
+             if (useFirebase && ASSESS_ID && q._id) {
+               await saveAnswerToFirebase(q._id, q.question, resp.answer);
+             }
+             continue; // Skip adding to toFetch since we got the answer
+           }
+         } catch (e) {
+           if (abortRequested) return;
+           console.warn("Review endpoint individual answer failed:", e);
+         }
+       }
+       
+       if (useFirebase && ASSESS_ID && q._id) {
+         try {
+           if (abortRequested) return;
+           const resp = await bgMsg("FIREBASE_GET_ANSWER", { testId: ASSESS_ID, questionId: q._id });
+           if (abortRequested) return;
+           console.log("[MayaAF] FIREBASE_GET_ANSWER batch resp:", resp.ok ? "ok, answer=" + resp.answer : "error: " + (resp.error || "none"));
+           if (resp.ok && resp.answer) {
+             q.answer = resp.answer;
+             dataSource = "firebase";
+             continue;
+           }
+         } catch (e) { /* ignore */ }
+       }
+       
+       if (!useAI) {
+         console.log("[MayaAF] Skipping AI for question:", q._id, "(AI disabled)");
+         continue;
+       }
+       
+       if (abortRequested) return;
+       toFetch.push({ questionId: q._id, question: q.question, options });
+     }
+     
+     if (abortRequested) return;
+     console.log("[MayaAF] resolveAnswersBatch toFetch:", toFetch.length);
+     if (!toFetch.length) return;
+     
+     if (onProgress) onProgress(`Fetching ${toFetch.length} answers from AI...`);
+     
+     try {
+       if (abortRequested) return;
+       const resp = await bgMsg("OPENROUTER_BATCH_ANSWER", { questions: toFetch, _useAI: useAI });
+       if (abortRequested) return;
+       if (resp.ok && resp.results) {
+         const toSave = [];
+         let success = 0;
+         for (const result of resp.results) {
+           if (abortRequested) return;
+           const q = uncached.find(uq => uq._id === result.questionId);
+           if (q && result.ok && result.answer) {
+             q.answer = result.answer;
+             dataSource = "ai";
+             success++;
+             if (useFirebase && ASSESS_ID && q._id) {
+               toSave.push({ testId: ASSESS_ID, questionId: q._id, questionText: q.question, answer: result.answer });
+             }
+           }
+         }
+         if (abortRequested) return;
+         if (onProgress) onProgress(`AI answered ${success}/${toFetch.length} questions`);
+         
+         // Save all to Firebase in parallel
+         if (toSave.length) {
+           if (onProgress) onProgress(`Saving ${toSave.length} answers to Firebase...`);
+           if (abortRequested) return;
+           await Promise.all(toSave.map(item => bgMsg("FIREBASE_SAVE_ANSWER", item)));
+           if (abortRequested) return;
+           if (onProgress) onProgress("Saved to Firebase");
+         }
+       }
+     } catch (e) {
+       if (abortRequested) return;
+       console.warn("Batch AI error:", e);
+       if (onProgress) onProgress("AI fetch failed");
+     }
+   }
 
   /* ---------------- matching & filling ---------------- */
 
@@ -361,92 +510,113 @@
     return null;
   }
 
-  async function fillDeepDiveQuestion(q) {
-    const qEl = findQuestionTextEl(q.question);
-    if (!qEl) {
-      return { filled: false, error: "question-mismatch", verified: false, idx: 1 };
-    }
-    const ans = normalize(q.answer);
-    if (!ans) return { filled: false, error: "no-answer", verified: false, idx: 1 };
-    let radios = $$('input[type=radio][name^="question"]');
-    if (!radios.length) radios = $$("input[type=radio]");
-    for (const radio of radios) {
-      const fc = radio.closest(".form-check");
-      const lbl = fc ? $("label", fc) : null;
-      const text = lbl ? normalize(lbl.innerText) : "";
-      const val = normalize(radio.value);
-      if ((text && text === ans) || (val && val === ans)) {
-        const ok = await trySelectRadio(radio, 1);
-        if (ok) {
-          matched++;
-          deepDiveSolved++;
-          updateProgress();
-          setStatus("Filled - solved " + deepDiveSolved + " question" + (deepDiveSolved > 1 ? "s" : ""));
-          flashPanel();
-        }
-        return { filled: ok, verified: ok, idx: 1, answer: q.answer };
-      }
-    }
-    const cands = $$("label, button, div, span, li, td").filter((el) => el.childElementCount === 0);
-    const anyEl = cands.find((el) => {
-      const t = normalize((el.textContent || "").trim());
-      return t && t === ans;
-    });
-    if (anyEl) {
-      anyEl.click();
-      const ok = await waitFor(() => {
-        if (/selected|active|checked|chosen|highlight/i.test(String(anyEl.className || ""))) return true;
-        const nb = $$("button").find((b) => /next question|submit/i.test((b.textContent || "").toLowerCase()));
-        return nb ? !nb.disabled : false;
-      }, 900, 50);
-      const success = ok || radios.length === 0;
-      if (success) {
-        matched++;
-        deepDiveSolved++;
-        updateProgress();
-        setStatus("Filled - solved " + deepDiveSolved + " question" + (deepDiveSolved > 1 ? "s" : ""));
-        flashPanel();
-      }
-      return { filled: success, verified: ok, idx: 1, answer: q.answer };
-    }
-    return { filled: false, error: "no-option", verified: false, idx: 1, answer: q.answer };
-  }
+async function fillDeepDiveQuestion(q) {
+     if (abortRequested) return { filled: false, error: "aborted", verified: false, idx: 1 };
+     const qEl = findQuestionTextEl(q.question);
+     if (!qEl) {
+       if (abortRequested) return { filled: false, error: "aborted", verified: false, idx: 1 };
+       return { filled: false, error: "question-mismatch", verified: false, idx: 1 };
+     }
+     const ans = normalize(q.answer);
+     if (!ans) {
+       if (abortRequested) return { filled: false, error: "aborted", verified: false, idx: 1 };
+       return { filled: false, error: "no-answer", verified: false, idx: 1 };
+     }
+     let radios = $$('input[type=radio][name^="question"]');
+     if (!radios.length) radios = $$("input[type=radio]");
+     for (const radio of radios) {
+       if (abortRequested) return { filled: false, error: "aborted", verified: false, idx: 1 };
+       const fc = radio.closest(".form-check");
+       const lbl = fc ? $("label", fc) : null;
+       const text = lbl ? normalize(lbl.innerText) : "";
+       const val = normalize(radio.value);
+       if ((text && text === ans) || (val && val === ans)) {
+         if (abortRequested) return { filled: false, error: "aborted", verified: false, idx: 1 };
+         const ok = await trySelectRadio(radio, 1);
+         if (abortRequested) return { filled: false, error: "aborted", verified: false, idx: 1 };
+         if (ok) {
+           matched++;
+           deepDiveSolved++;
+           updateProgress();
+           setStatus("Filled - solved " + deepDiveSolved + " question" + (deepDiveSolved > 1 ? "s" : ""));
+           flashPanel();
+         }
+         return { filled: ok, verified: ok, idx: 1, answer: q.answer };
+       }
+     }
+     if (abortRequested) return { filled: false, error: "aborted", verified: false, idx: 1 };
+     const cands = $$("label, button, div, span, li, td").filter((el) => el.childElementCount === 0);
+     const anyEl = cands.find((el) => {
+       if (abortRequested) return false;
+       const t = normalize((el.textContent || "").trim());
+       return t && t === ans;
+     });
+     if (anyEl) {
+       if (abortRequested) return { filled: false, error: "aborted", verified: false, idx: 1 };
+       anyEl.click();
+       const ok = await waitFor(() => {
+         if (/selected|active|checked|chosen|highlight/i.test(String(anyEl.className || ""))) return true;
+         const nb = $$("button").find((b) => /next question|submit/i.test((b.textContent || "").toLowerCase()));
+         return nb ? !nb.disabled : false;
+       }, 900, 50);
+       if (abortRequested) return { filled: false, error: "aborted", verified: false, idx: 1 };
+       const success = ok || radios.length === 0;
+       if (success) {
+         matched++;
+         deepDiveSolved++;
+         updateProgress();
+         setStatus("Filled - solved " + deepDiveSolved + " question" + (deepDiveSolved > 1 ? "s" : ""));
+         flashPanel();
+       }
+       return { filled: success, verified: ok, idx: 1, answer: q.answer };
+     }
+     if (abortRequested) return { filled: false, error: "aborted", verified: false, idx: 1 };
+     return { filled: false, error: "no-option", verified: false, idx: 1, answer: q.answer };
+   }
 
-  async function submitDeepDive() {
-    const findBtn = () => {
-      const all = $$("button").concat($$("input[type=submit]"));
-      const cands = all.filter((b) => {
-        if (b.disabled) return false;
-        const t = ((b.textContent || b.value || "") + " " + (b.title || ""))
-          .trim().toLowerCase().replace(/[>➜→]+/g, "").replace(/\s+/g, " ");
-        return t.includes("submit") || t.includes("next question") || t === "next" || t.includes("save & next");
-      });
-      return cands.find((b) => b.offsetParent !== null) || cands[0] || null;
-    };
-    if (!findBtn()) {
-      const appeared = await waitFor(() => !!findBtn(), 2500, 100);
-      if (!appeared) return false;
-    }
-    let clickedOnce = false;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const btn = findBtn();
-      if (!btn) break;
-      const before = pageProgress();
-      btn.click();
-      clickedOnce = true;
-      const advanced = await waitFor(() => {
-        if (!singleQ) return true;
-        if (!findQuestionTextEl(singleQ.question)) return true;
-        if ($$("input[type=radio]:checked").length === 0) return true;
-        const after = pageProgress();
-        return !!(before && after && after.done > before.done);
-      }, 2500, 150);
-      if (advanced) return true;
-    }
-    return clickedOnce;
-  }
+async function submitDeepDive() {
+     if (abortRequested) return false;
+     const findBtn = () => {
+       const all = $$("button").concat($$("input[type=submit]"));
+       const cands = all.filter((b) => {
+         if (b.disabled) return false;
+         const t = ((b.textContent || b.value || "") + " " + (b.title || ""))
+           .trim().toLowerCase().replace(/[>➜→]+/g, "").replace(/\s+/g, " ");
+         return t.includes("submit") || t.includes("next question") || t === "next" || t.includes("save & next");
+       });
+       return cands.find((b) => b.offsetParent !== null) || cands[0] || null;
+     };
+     if (!findBtn()) {
+       if (abortRequested) return false;
+       const appeared = await waitFor(() => !!findBtn(), 2500, 100);
+       if (abortRequested) return false;
+       if (!appeared) return false;
+     }
+     let clickedOnce = false;
+     for (let attempt = 0; attempt < 3; attempt++) {
+       if (abortRequested) return false;
+       const btn = findBtn();
+       if (!btn) break;
+       const before = pageProgress();
+       btn.click();
+       clickedOnce = true;
+       if (abortRequested) return false;
+       const advanced = await waitFor(() => {
+         if (abortRequested) return false;
+         if (!singleQ) return true;
+         if (!findQuestionTextEl(singleQ.question)) return true;
+         if ($$("input[type=radio]:checked").length === 0) return true;
+         const after = pageProgress();
+         return !!(before && after && after.done > before.done);
+       }, 2500, 150);
+       if (abortRequested) return false;
+       if (advanced) return true;
+     }
+       if (abortRequested) return false;
+       return clickedOnce;
+     }
 
-  let pageProgCache = null;
+   let pageProgCache = null;
   let pageProgAt = 0;
   function pageProgress() {
     if (Date.now() - pageProgAt < 2000) return pageProgCache;
@@ -482,33 +652,47 @@
       sessionStorage.removeItem("maya-af-reload-same");
     } catch (e) {}
   }
-  async function deepDiveSelfFetch() {
-    if (fallbackBusy) return null;
-    fallbackBusy = true;
-    try {
-      const params = new URLSearchParams(location.search);
-      const tech = params.get("technology");
-      const topic = params.get("topic");
-      let roll = params.get("roll_no") || null;
-      if (!roll && capturedMeta && capturedMeta.roll_no) roll = capturedMeta.roll_no;
-      if (!tech || !topic) return null;
-      const resp = await fetch("https://api.maya.adityauniversity.in/node/api/get-random-deep-dive-question", {
-        method: "POST",
-        credentials: "omit",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ technology: tech, roll_no: roll, topic: topic })
-      });
-      if (!resp.ok) return null;
-      const q = await resp.json();
-      if (!q || !q.question || !q.answer) return null;
-      if (singleQ || !findQuestionTextEl(q.question)) return null;
-      return q;
-    } catch (e) {
-      return null;
-    } finally {
-      setTimeout(() => { fallbackBusy = false; }, 2000);
-    }
-  }
+async function deepDiveSelfFetch() {
+     if (abortRequested) return null;
+     if (fallbackBusy) return null;
+     fallbackBusy = true;
+     try {
+       if (abortRequested) return null;
+       const params = new URLSearchParams(location.search);
+       const tech = params.get("technology");
+       const topic = params.get("topic");
+       let roll = params.get("roll_no") || null;
+       if (!roll && capturedMeta && capturedMeta.roll_no) roll = capturedMeta.roll_no;
+       if (!tech || !topic) {
+         if (abortRequested) return null;
+         return null;
+       }
+       if (abortRequested) return null;
+       const resp = await fetch("https://api.maya.adityauniversity.in/node/api/get-random-deep-dive-question", {
+         method: "POST",
+         credentials: "omit",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify({ technology: tech, roll_no: roll, topic: topic })
+       });
+       if (abortRequested) return null;
+       if (!resp.ok) return null;
+       if (abortRequested) return null;
+       const q = await resp.json();
+       if (abortRequested) return null;
+       if (!q || !q.question || !q.answer) return null;
+       if (singleQ || !findQuestionTextEl(q.question)) {
+         if (abortRequested) return null;
+         return null;
+       }
+       if (abortRequested) return null;
+       return q;
+     } catch (e) {
+       if (abortRequested) return null;
+       return null;
+     } finally {
+       setTimeout(() => { fallbackBusy = false; }, 2000);
+     }
+   }
 
   function findRadioForAnswer(idx, ans) {
     const radios = $$('input[type=radio][name="question' + idx + '"]');
@@ -527,15 +711,19 @@
     return $('input[type=radio][name="question' + idx + '"]:checked') || null;
   }
 
-  async function trySelectRadio(radio, idx) {
-    if (radio.checked) return true;
-    radio.click();
-    radio.dispatchEvent(new Event("change", { bubbles: true }));
-    if (await waitFor(() => !!getChecked(idx), 700, 40)) return true;
-    radio.click();
-    radio.dispatchEvent(new Event("change", { bubbles: true }));
-    return await waitFor(() => !!getChecked(idx), 1200, 60);
-  }
+async function trySelectRadio(radio, idx) {
+     if (abortRequested) return false;
+     if (radio.checked) return true;
+     radio.click();
+     radio.dispatchEvent(new Event("change", { bubbles: true }));
+     if (abortRequested) return false;
+     if (await waitFor(() => !!getChecked(idx), 700, 40)) return true;
+     if (abortRequested) return false;
+     radio.click();
+     radio.dispatchEvent(new Event("change", { bubbles: true }));
+     if (abortRequested) return false;
+     return await waitFor(() => !!getChecked(idx), 1200, 60);
+   }
 
   async function fillCurrentQuestion(force) {
     if (isDeepDive) {
@@ -553,6 +741,7 @@
     if (!apiQuestions.length) return { filled: false, error: "no-data", verified: false, idx };
     const q = findQuestion(idx);
     if (!q) return { filled: false, error: "no-match", verified: false, idx };
+    console.log("[MayaAF] fillCurrentQuestion idx:", idx, "q._id:", q._id, "q.question:", q.question?.substring(0, 50));
     const resolved = await resolveAnswer(q);
     if (!resolved) return { filled: false, error: "no-answer", verified: false, idx };
     q.answer = resolved;
@@ -564,6 +753,7 @@
       matched++;
       updateProgress();
     }
+    console.log("[MayaAF] fillCurrentQuestion result:", { filled: verified, idx, answer: resolved });
     return { filled: verified, verified: verified, idx, answer: resolved };
   }
 
@@ -592,6 +782,7 @@
   async function sweepQuestions(forceAll) {
     const t0 = Date.now();
     while (Date.now() - t0 < 60000) {
+      if (abortRequested) return;
       if (apiQuestions.length && getGrid()) break;
       if (!apiQuestions.length) setStatus("Waiting for the page's questions to load...");
       await sleep(300);
@@ -606,9 +797,11 @@
     }
 
     const unanswered = apiQuestions.filter(q => !q.answer);
+    console.log("[MayaAF] sweepQuestions start, total:", apiQuestions.length, "unanswered:", unanswered.length);
     if (unanswered.length) {
       await resolveAnswersBatch(unanswered, (msg) => setStatus(msg));
     }
+    console.log("[MayaAF] sweepQuestions after batch, answered:", apiQuestions.filter(q => q.answer).length);
 
     const passes = forceAll ? 1 : 5;
     for (let pass = 0; pass < passes; pass++) {
@@ -647,9 +840,11 @@
         }
         t++;
       }
+      if (abortRequested) break;
       if (pending === 0) break;
       const stats = getGridStats();
       if (!stats || stats.answered === 0) break;
+      if (abortRequested) break;
       await sleep(300);
     }
   }
@@ -660,61 +855,72 @@
     abortRequested = false;
     const stopBtn = $("#maya-af-stop");
     if (stopBtn) stopBtn.style.display = "block";
+    console.log("[MayaAF] autoFillAll start, apiQuestions:", apiQuestions.length, "isDeepDive:", isDeepDive);
     try {
-      if (ASSESS_ID && !firebaseEnabled) {
-        setStatus("Loading answers from Firebase...");
+      if (ASSESS_ID) {
+        setStatus("Loading answers...");
         await loadFirebaseAndAI();
       }
+      console.log("[MayaAF] autoFillAll after loadFirebaseAndAI, apiQuestions:", apiQuestions.length, "answers:", apiQuestions.filter(q => q.answer).length);
       if (isDeepDive) {
-        const t0 = Date.now();
-        setStatus("Waiting for the page's question data...");
-        while (!singleQ && Date.now() - t0 < 60000) await sleep(400);
-        if (!singleQ) {
-          setStatus("No question data from the page yet. Reload the test page if it stays empty.");
-          return;
-        }
-        if (!findQuestionTextEl(singleQ.question)) {
-          setStatus("Waiting for the next question...");
-          return;
-        }
-        const r = await fillDeepDiveQuestion(singleQ);
-        if (r && r.filled && autoAdvance) {
-          const qText = normalize(singleQ.question);
-          if (qText === lastSubmittedQ) {
-            setStatus("Question already submitted - waiting for the next one...");
-            return;
-          }
-          resetReloadTracking();
-          failedQ = null;
-          failedCount = 0;
-          lastSubmittedQ = qText;
-          const submitted = await submitDeepDive();
-          if (!submitted) setStatus("Filled but the submit button was not found. Please submit manually.");
-        } else if (r && !r.filled) {
-          const qText = normalize(singleQ.question);
-          if (failedQ === qText) failedCount++;
-          else { failedQ = qText; failedCount = 1; }
-          if (r.error === "no-option" || r.error === "question-mismatch") {
-            const same = trackReload(qText);
-            if (same <= 2) {
-              setStatus("Option not found - reloading for a new question...");
-              await sleep(1800);
-              location.reload();
-              return;
-            }
-            setStatus("Question: " + (r.error || "unknown") +
-              (r.error === "no-option" && r.answer ? " (answer: '" + r.answer + "')" : "") +
-              " - the same question keeps reloading, so further reloads are paused. You can click Retry to force one more.");
-          } else {
-            setStatus("Question: " + (r.error || "unknown"));
-          }
-        } else if (r && r.filled && !autoAdvance) {
-          resetReloadTracking();
-          failedQ = null;
-          failedCount = 0;
-        }
-        return;
-      }
+         const t0 = Date.now();
+         setStatus("Waiting for the page's question data...");
+         while (!singleQ && Date.now() - t0 < 60000) {
+           if (abortRequested) return;
+           await sleep(400);
+         }
+         if (abortRequested) return;
+         if (!singleQ) {
+           setStatus("No question data from the page yet. Reload the test page if it stays empty.");
+           return;
+         }
+         if (abortRequested) return;
+         if (!findQuestionTextEl(singleQ.question)) {
+           setStatus("Waiting for the next question...");
+           return;
+         }
+         if (abortRequested) return;
+         const r = await fillDeepDiveQuestion(singleQ);
+         if (abortRequested) return;
+         if (r && r.filled && autoAdvance) {
+           const qText = normalize(singleQ.question);
+           if (qText === lastSubmittedQ) {
+             setStatus("Question already submitted - waiting for the next one...");
+             return;
+           }
+           resetReloadTracking();
+           failedQ = null;
+           failedCount = 0;
+           lastSubmittedQ = qText;
+           const submitted = await submitDeepDive();
+           if (abortRequested) return;
+           if (!submitted) setStatus("Filled but the submit button was not found. Please submit manually.");
+         } else if (r && !r.filled) {
+           const qText = normalize(singleQ.question);
+           if (failedQ === qText) failedCount++;
+           else { failedQ = qText; failedCount = 1; }
+           if (r.error === "no-option" || r.error === "question-mismatch") {
+             const same = trackReload(qText);
+             if (same <= 2) {
+               setStatus("Option not found - reloading for a new question...");
+               await sleep(1800);
+               location.reload();
+               return;
+             }
+             setStatus("Question: " + (r.error || "unknown") +
+               (r.error === "no-option" && r.answer ? " (answer: '" + r.answer + "')" : "") +
+               " - the same question keeps reloading, so further reloads are paused. You can click Retry to force one more.");
+           } else {
+             setStatus("Question: " + (r.error || "unknown"));
+           }
+         } else if (r && r.filled && !autoAdvance) {
+           resetReloadTracking();
+           failedQ = null;
+           failedCount = 0;
+         }
+         if (abortRequested) return;
+         return;
+       }
       await sweepQuestions(false);
       if (pendingForceSweep && !abortRequested) {
         pendingForceSweep = false;
@@ -1017,6 +1223,9 @@
   function applySettings(settings) {
     if (typeof settings.autoRun === "boolean") autoRun = settings.autoRun;
     if (typeof settings.autoAdvance === "boolean") autoAdvance = settings.autoAdvance;
+    if (typeof settings.useReviewApi === "boolean") useReviewApi = settings.useReviewApi;
+    if (typeof settings.useFirebase === "boolean") useFirebase = settings.useFirebase;
+    if (typeof settings.useAI === "boolean") useAI = settings.useAI;
     const ar = $("#maya-af-autorun");
     const ad = $("#maya-af-advance");
     if (ar) ar.checked = autoRun;
@@ -1026,7 +1235,7 @@
     }
   }
 
-  chrome.storage.local.get(["autoRun", "autoAdvance", "questionsJson", "usePastedJson"], (s) => applySettings(s));
+  chrome.storage.local.get(["autoRun", "autoAdvance", "useReviewApi", "useFirebase", "useAI", "questionsJson", "usePastedJson"], (s) => applySettings(s));
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     const s = {};
@@ -1041,52 +1250,60 @@
   let lastRaw = null;
 
   function injectHook() {
-    if (document.documentElement.hasAttribute("data-maya-af-hook-installed")) return;
+    if (document.documentElement.hasAttribute("data-maya-af-hook-installed")) {
+      console.log("[MayaAF] Hook already installed");
+      return;
+    }
+    console.log("[MayaAF] Injecting hook...");
     const el = document.createElement("script");
     el.src = chrome.runtime.getURL("hook-injected.js");
     (document.documentElement || document.head || document.body).appendChild(el);
   }
 
-  function startPoller() {
-    clearInterval(pollTimer);
-    pollTimer = setInterval(() => {
-      const raw = document.documentElement.getAttribute("data-maya-af-questions");
-      if (raw) {
-        clearInterval(pollTimer);
-        try { useCapturedData(JSON.parse(raw)); } catch (e) { /* ignore */ }
-        return;
-      }
-      const rawMeta = document.documentElement.getAttribute("data-maya-af-meta");
-      if (rawMeta) {
-        try { capturedMeta = JSON.parse(rawMeta) || capturedMeta; } catch (e) { /* ignore */ }
-      }
-    }, 400);
-  }
+function startPoller() {
+     clearInterval(pollTimer);
+     pollTimer = setInterval(() => {
+       if (abortRequested) return;
+       const raw = document.documentElement.getAttribute("data-maya-af-questions");
+       if (raw) {
+         clearInterval(pollTimer);
+         console.log("[MayaAF] Poller found questions");
+         try { useCapturedData(JSON.parse(raw)); } catch (e) { /* ignore */ }
+         return;
+       }
+       if (abortRequested) return;
+       const rawMeta = document.documentElement.getAttribute("data-maya-af-meta");
+       if (rawMeta) {
+         try { capturedMeta = JSON.parse(rawMeta) || capturedMeta; } catch (e) { /* ignore */ }
+       }
+     }, 400);
+   }
 
-  function startWatchdog() {
-    clearInterval(watchdogTimer);
-    lastRaw = null;
-    watchdogTimer = setInterval(() => {
-      const raw = document.documentElement.getAttribute("data-maya-af-questions");
-      if (raw && raw !== lastRaw) {
-        lastRaw = raw;
-        try { useCapturedData(JSON.parse(raw)); } catch (e) { /* ignore */ }
-      }
-      if (autoRun && !running && isDeepDive) {
-        const currentQ = singleQ && findQuestionTextEl(singleQ.question) ? singleQ : null;
-        if (currentQ) {
-          const radios = $$("input[type=radio]");
-          const gaveUp = failedQ === normalize(currentQ.question) && failedCount >= 5;
-          if (!gaveUp && (!radios.length || !radios.some((r) => r.checked))) autoFillAll();
-        } else if (!singleQ) {
-          deepDiveSelfFetch().then((q) => {
-            if (q && !singleQ && findQuestionTextEl(q.question)) captureSingleQuestion(q);
-          }).catch(() => {});
-        }
-      }
-      updateProgress();
-    }, 2500);
-  }
+function startWatchdog() {
+     clearInterval(watchdogTimer);
+     lastRaw = null;
+     watchdogTimer = setInterval(() => {
+       if (abortRequested) return;
+       const raw = document.documentElement.getAttribute("data-maya-af-questions");
+       if (raw && raw !== lastRaw) {
+         lastRaw = raw;
+         try { useCapturedData(JSON.parse(raw)); } catch (e) { /* ignore */ }
+       }
+       if (autoRun && !running && isDeepDive) {
+         const currentQ = singleQ && findQuestionTextEl(singleQ.question) ? singleQ : null;
+         if (currentQ) {
+           const radios = $$("input[type=radio]");
+           const gaveUp = failedQ === normalize(currentQ.question) && failedCount >= 5;
+           if (!gaveUp && (!radios.length || !radios.some((r) => r.checked))) autoFillAll();
+         } else if (!singleQ) {
+           deepDiveSelfFetch().then((q) => {
+             if (q && !singleQ && findQuestionTextEl(q.question)) captureSingleQuestion(q);
+           }).catch(() => {});
+         }
+       }
+       updateProgress();
+     }, 2500);
+   }
 
   function resetForNavigation() {
     document.documentElement.removeAttribute("data-maya-af-questions");
@@ -1121,6 +1338,7 @@
 
   async function init() {
     buildPanel();
+    injectHook();
     if (!isDeepDive) loadQuestions().catch((e) => setStatus("Error: " + e.message));
     startPoller();
     if (isDeepDive) startWatchdog();

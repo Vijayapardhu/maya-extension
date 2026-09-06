@@ -57,23 +57,80 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
-  if (msg.type === "FIREBASE_GET_ANSWERS") {
-    (async () => {
-      try {
-        const q = query(collection(db, "answers"), where("testId", "==", msg.testId));
-        const snap = await getDocs(q);
-        const results = {};
-        snap.forEach(d => {
-          const data = d.data();
-          results[data.questionId] = data.answer;
-        });
-        sendResponse({ ok: true, answers: results });
-      } catch (e) {
-        sendResponse({ ok: false, error: String(e) });
-      }
-    })();
-    return true;
-  }
+ if (msg.type === "FIREBASE_GET_ANSWERS") {
+     (async () => {
+         try {
+             const q = query(collection(db, "answers"), where("testId", "==", msg.testId));
+             const snap = await getDocs(q);
+             const results = {};
+             snap.forEach(d => {
+                 const data = d.data();
+                 results[data.questionId] = data.answer;
+             });
+             sendResponse({ ok: true, answers: results });
+         } catch (e) {
+             sendResponse({ ok: false, error: String(e) });
+         }
+     })();
+     return true;
+ }
+
+ if (msg.type === "REVIEW_GET_ANSWERS") {
+     (async () => {
+         try {
+             const response = await fetch("https://api.maya.adityauniversity.in/node/api/review-grand-assessment", {
+                 method: "POST",
+                 headers: { "Content-Type": "application/json" },
+                 body: JSON.stringify({
+                     assessment: msg.testId,
+                     test_type: "general",
+                     roll_no: msg.rollNo || null
+                 })
+             });
+             if (!response.ok) throw new Error("HTTP " + response.status);
+             const data = await response.json();
+             const answers = {};
+             const items = Array.isArray(data.question_details) ? data.question_details : [];
+             for (const item of items) {
+                 if (item.question_id && item.answer) {
+                     answers[item.question_id] = item.answer;
+                 }
+             }
+             sendResponse({ ok: true, answers });
+         } catch (e) {
+             sendResponse({ ok: false, error: String(e) });
+         }
+     })();
+     return true;
+ }
+
+ if (msg.type === "REVIEW_GET_ANSWER") {
+     (async () => {
+         try {
+             const response = await fetch("https://api.maya.adityauniversity.in/node/api/review-grand-assessment", {
+                 method: "POST",
+                 headers: { "Content-Type": "application/json" },
+                 body: JSON.stringify({
+                     assessment: msg.testId,
+                     test_type: "general",
+                     roll_no: msg.rollNo || null
+                 })
+             });
+             if (!response.ok) throw new Error("HTTP " + response.status);
+             const data = await response.json();
+             const items = Array.isArray(data.question_details) ? data.question_details : [];
+             const found = items.find(item => item.question_id === msg.questionId);
+             if (found && found.answer) {
+                 sendResponse({ ok: true, answer: found.answer });
+             } else {
+                 sendResponse({ ok: false, error: "Answer not found in response" });
+             }
+         } catch (e) {
+             sendResponse({ ok: false, error: String(e) });
+         }
+     })();
+     return true;
+ }
 
   if (msg.type === "FIREBASE_GET_ANSWER") {
     (async () => {
@@ -144,6 +201,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           sendResponse({ ok: false, error: "OpenRouter API key not configured in Firebase. Add it to Firestore config/ai document." });
           return;
         }
+        if (msg._useAI === false) {
+          sendResponse({ ok: false, error: "AI is disabled in settings" });
+          return;
+        }
         const prompt = `Answer this multiple choice question. Return ONLY the correct option text (exactly as it appears in the options).
 
 Question: ${msg.question}
@@ -164,12 +225,12 @@ Correct answer (option text only):`;
             "HTTP-Referer": "https://maya.adityauniversity.in",
             "X-Title": "Maya AutoPilot"
           },
-          body: JSON.stringify({
-            model: DEFAULT_MODEL,
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0,
-            max_tokens: 50
-          })
+ body: JSON.stringify({
+               model: DEFAULT_MODEL,
+               messages: [{ role: "user", content: prompt }],
+               temperature: 0,
+               max_tokens: 1024
+             })
         });
 
         if (!response.ok) {
@@ -222,6 +283,10 @@ Correct answer (option text only):`;
           sendResponse({ ok: false, error: "OpenRouter API key not configured in Firebase. Add it to Firestore config/ai document." });
           return;
         }
+        if (msg._useAI === false) {
+          sendResponse({ ok: false, error: "AI is disabled in settings" });
+          return;
+        }
         const { questions } = msg;
         const promises = questions.map(async (q) => {
           const prompt = `Answer this multiple choice question. Return ONLY the correct option text (exactly as it appears in the options).
@@ -245,12 +310,12 @@ Correct answer (option text only):`;
                 "HTTP-Referer": "https://maya.adityauniversity.in",
                 "X-Title": "Maya AutoPilot"
               },
-              body: JSON.stringify({
-                model: DEFAULT_MODEL,
-                messages: [{ role: "user", content: prompt }],
-                temperature: 0,
-                max_tokens: 200
-              })
+ body: JSON.stringify({
+                   model: DEFAULT_MODEL,
+                   messages: [{ role: "user", content: prompt }],
+                   temperature: 0,
+                   max_tokens: 1024
+                 })
             });
 
             if (!response.ok) {
