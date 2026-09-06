@@ -187,71 +187,104 @@ const postMeta = (meta) => {
     });
   }
 
-async function loadFirebaseAndAI() {
-     if (abortRequested) return;
-     if (!ASSESS_ID) return;
-     console.log("[MayaAF] loadFirebaseAndAI start, useReviewApi:", useReviewApi, "useFirebase:", useFirebase);
-     
-     // Try to get answers from the review endpoint first
-     if (useReviewApi) {
-       try {
-         if (abortRequested) return;
-         const resp = await bgMsg("REVIEW_GET_ANSWERS", { testId: ASSESS_ID, rollNo: capturedMeta?.roll_no ?? null });
-         if (abortRequested) return;
-         console.log("[MayaAF] REVIEW_GET_ANSWERS resp:", resp.ok ? "ok, answers=" + Object.keys(resp.answers || {}).length : "error: " + (resp.error || "none"));
-         if (resp.ok && resp.answers) {
-           for (const q of apiQuestions) {
-             if (abortRequested) return;
-             if (resp.answers[q._id]) {
-               q.answer = resp.answers[q._id];
-             }
-           }
-           if (abortRequested) return;
-           if (Object.keys(resp.answers).length > 0) {
-             firebaseEnabled = true;
-             dataSource = "review";
-             byText = new Map(apiQuestions.map((q) => [normalize(q.question), q]));
-             setStatus(`Loaded ${Object.keys(resp.answers).length} answers from review endpoint`);
-             flashPanel();
-             return; // Success, no need to try Firebase
-           }
-         }
-       } catch (e) {
-         if (abortRequested) return;
-         console.warn("Review endpoint load failed:", e);
-       }
-     }
-     
-     // Fall back to Firebase if review endpoint didn't work
-     if (useFirebase) {
-       try {
-         if (abortRequested) return;
-         const resp = await bgMsg("FIREBASE_GET_ANSWERS", { testId: ASSESS_ID });
-         if (abortRequested) return;
-         console.log("[MayaAF] FIREBASE_GET_ANSWERS resp:", resp.ok ? "ok, answers=" + Object.keys(resp.answers || {}).length : "error: " + (resp.error || "none"));
-         if (resp.ok && resp.answers) {
-           for (const q of apiQuestions) {
-             if (abortRequested) return;
-             if (resp.answers[q._id]) {
-               q.answer = resp.answers[q._id];
-             }
-           }
-           if (abortRequested) return;
-           if (Object.keys(resp.answers).length > 0) {
-             firebaseEnabled = true;
-             dataSource = "firebase";
-             byText = new Map(apiQuestions.map((q) => [normalize(q.question), q]));
-             setStatus(`Loaded ${Object.keys(resp.answers).length} answers from Firebase`);
-             flashPanel();
-           }
-         }
-       } catch (e) {
-         if (abortRequested) return;
-         console.warn("Firebase load failed:", e);
-       }
-     }
-     console.log("[MayaAF] loadFirebaseAndAI done");
+ async function reviewFetch(payload) {
+   if (abortRequested) return null;
+   try {
+     const cookieHeader = document.cookie || "";
+     const resp = await fetch("https://api.maya.adityauniversity.in/node/api/review-grand-assessment", {
+       method: "POST",
+       headers: {
+         "Content-Type": "application/json",
+         "Cookie": cookieHeader,
+       },
+       body: JSON.stringify(payload),
+       credentials: "include",
+     });
+     const text = await resp.text();
+     console.log("[MayaAF] reviewFetch status:", resp.status, "body:", text.substring(0, 200));
+     if (!resp.ok) throw new Error("HTTP " + resp.status + ": " + text);
+     return JSON.parse(text);
+   } catch (e) {
+     if (abortRequested) return null;
+     console.warn("Review endpoint fetch failed:", e);
+     return null;
    }
+ }
+
+ async function loadFirebaseAndAI() {
+      if (abortRequested) return;
+      if (!ASSESS_ID) return;
+      console.log("[MayaAF] loadFirebaseAndAI start, useReviewApi:", useReviewApi, "useFirebase:", useFirebase);
+      
+      // Load all answers from review endpoint in one call
+      if (useReviewApi) {
+        try {
+          if (abortRequested) return;
+          const data = await reviewFetch({
+            assessment: ASSESS_ID,
+            test_type: "general",
+            roll_no: capturedMeta?.roll_no || null
+          });
+          if (abortRequested) return;
+          if (data && data.question_details && Array.isArray(data.question_details)) {
+            const answersMap = {};
+            for (const item of data.question_details) {
+              if (item.question_id && item.answer) {
+                answersMap[item.question_id] = item.answer;
+              }
+            }
+            console.log("[MayaAF] reviewFetch answers count:", Object.keys(answersMap).length);
+            for (const q of apiQuestions) {
+              if (abortRequested) return;
+              if (answersMap[q._id]) {
+                q.answer = answersMap[q._id];
+              }
+            }
+            if (Object.keys(answersMap).length > 0) {
+              firebaseEnabled = true;
+              dataSource = "review";
+              byText = new Map(apiQuestions.map((q) => [normalize(q.question), q]));
+              setStatus(`Loaded ${Object.keys(answersMap).length} answers from review endpoint`);
+              flashPanel();
+              return; // Success, no need to try Firebase
+            }
+          }
+        } catch (e) {
+          if (abortRequested) return;
+          console.warn("Review endpoint load failed:", e);
+        }
+      }
+      
+      // Fall back to Firebase if review endpoint didn't work
+      if (useFirebase) {
+        try {
+          if (abortRequested) return;
+          const resp = await bgMsg("FIREBASE_GET_ANSWERS", { testId: ASSESS_ID });
+          if (abortRequested) return;
+          console.log("[MayaAF] FIREBASE_GET_ANSWERS resp:", resp.ok ? "ok, answers=" + Object.keys(resp.answers || {}).length : "error: " + (resp.error || "none"));
+          if (resp.ok && resp.answers) {
+            for (const q of apiQuestions) {
+              if (abortRequested) return;
+              if (resp.answers[q._id]) {
+                q.answer = resp.answers[q._id];
+              }
+            }
+            if (abortRequested) return;
+            if (Object.keys(resp.answers).length > 0) {
+              firebaseEnabled = true;
+              dataSource = "firebase";
+              byText = new Map(apiQuestions.map((q) => [normalize(q.question), q]));
+              setStatus(`Loaded ${Object.keys(resp.answers).length} answers from Firebase`);
+              flashPanel();
+            }
+          }
+        } catch (e) {
+          if (abortRequested) return;
+          console.warn("Firebase load failed:", e);
+        }
+      }
+      console.log("[MayaAF] loadFirebaseAndAI done");
+    }
 
 async function getAnswerFromAI(question, options) {
      if (abortRequested) return null;
@@ -284,73 +317,52 @@ async function getAnswerFromAI(question, options) {
       }
     }
 
- async function resolveAnswer(q) {
-      if (abortRequested) return null;
-      if (q.answer) {
-        console.log("[MayaAF] resolveAnswer already has answer:", q._id, q.answer);
-        return q.answer;
-      }
-      
-      const options = {
-        option1: q.option1,
-        option2: q.option2,
-        option3: q.option3,
-        option4: q.option4
-      };
-      console.log("[MayaAF] resolveAnswer start:", q._id, "useReviewApi:", useReviewApi, "useFirebase:", useFirebase, "useAI:", useAI);
-      
-      // Try to get answer from review endpoint (individual)
-      if (useReviewApi) {
-        try {
-          if (abortRequested) return null;
-          const resp = await bgMsg("REVIEW_GET_ANSWER", { testId: ASSESS_ID, questionId: q._id, rollNo: capturedMeta?.roll_no ?? null });
-          if (abortRequested) return null;
-          console.log("[MayaAF] REVIEW_GET_ANSWER resp:", resp.ok ? "ok, answer=" + resp.answer : "error: " + (resp.error || "none"));
-          if (resp.ok && resp.answer) {
-            q.answer = resp.answer;
-            dataSource = "review";
-            if (useFirebase && ASSESS_ID && q._id) {
-              await saveAnswerToFirebase(q._id, q.question, resp.answer);
-            }
-            return resp.answer;
-          }
-        } catch (e) {
-          if (abortRequested) return null;
-          console.warn("Review endpoint individual answer failed:", e);
-        }
-      }
-      
-      if (useFirebase && ASSESS_ID && q._id) {
-        try {
-          if (abortRequested) return null;
-          const resp = await bgMsg("FIREBASE_GET_ANSWER", { testId: ASSESS_ID, questionId: q._id });
-          if (abortRequested) return null;
-          console.log("[MayaAF] FIREBASE_GET_ANSWER resp:", resp.ok ? "ok, answer=" + resp.answer : "error: " + (resp.error || "none"));
-          if (resp.ok && resp.answer) {
-            q.answer = resp.answer;
-            dataSource = "firebase";
-            return resp.answer;
-          }
-        } catch (e) { /* ignore */ }
-      }
-      
-      if (abortRequested) return null;
-      const aiAnswer = await getAnswerFromAI(q.question, options);
-      if (abortRequested) return null;
-      console.log("[MayaAF] getAnswerFromAI result:", aiAnswer);
-      if (aiAnswer) {
-        q.answer = aiAnswer;
-        dataSource = "ai";
-        if (useFirebase && ASSESS_ID && q._id) {
-          await saveAnswerToFirebase(q._id, q.question, aiAnswer);
-        }
-        return aiAnswer;
-      }
-      
-      if (abortRequested) return null;
-      console.log("[MayaAF] resolveAnswer no answer found:", q._id);
-      return null;
-    }
+  async function resolveAnswer(q) {
+       if (abortRequested) return null;
+       if (q.answer) {
+         console.log("[MayaAF] resolveAnswer already has answer:", q._id, q.answer);
+         return q.answer;
+       }
+       
+       const options = {
+         option1: q.option1,
+         option2: q.option2,
+         option3: q.option3,
+         option4: q.option4
+       };
+       console.log("[MayaAF] resolveAnswer start:", q._id, "useFirebase:", useFirebase, "useAI:", useAI);
+       
+       if (useFirebase && ASSESS_ID && q._id) {
+         try {
+           if (abortRequested) return null;
+           const resp = await bgMsg("FIREBASE_GET_ANSWER", { testId: ASSESS_ID, questionId: q._id });
+           if (abortRequested) return null;
+           console.log("[MayaAF] FIREBASE_GET_ANSWER resp:", resp.ok ? "ok, answer=" + resp.answer : "error: " + (resp.error || "none"));
+           if (resp.ok && resp.answer) {
+             q.answer = resp.answer;
+             dataSource = "firebase";
+             return resp.answer;
+           }
+         } catch (e) { /* ignore */ }
+       }
+       
+       if (abortRequested) return null;
+       const aiAnswer = await getAnswerFromAI(q.question, options);
+       if (abortRequested) return null;
+       console.log("[MayaAF] getAnswerFromAI result:", aiAnswer);
+       if (aiAnswer) {
+         q.answer = aiAnswer;
+         dataSource = "ai";
+         if (useFirebase && ASSESS_ID && q._id) {
+           await saveAnswerToFirebase(q._id, q.question, aiAnswer);
+         }
+         return aiAnswer;
+       }
+       
+       if (abortRequested) return null;
+       console.log("[MayaAF] resolveAnswer no answer found:", q._id);
+       return null;
+     }
 
 async function resolveAnswersBatch(questions, onProgress) {
      if (abortRequested) return;
@@ -359,58 +371,37 @@ async function resolveAnswersBatch(questions, onProgress) {
      if (!uncached.length) return;
      
      const toFetch = [];
-     for (const q of uncached) {
-       if (abortRequested) return;
-       const options = {
-         option1: q.option1,
-         option2: q.option2,
-         option3: q.option3,
-         option4: q.option4
-       };
-       
-       // Try to get answer from review endpoint (individual)
-       if (useReviewApi) {
-         try {
-           if (abortRequested) return;
-           const resp = await bgMsg("REVIEW_GET_ANSWER", { testId: ASSESS_ID, questionId: q._id, rollNo: capturedMeta?.roll_no ?? null });
-           if (abortRequested) return;
-           console.log("[MayaAF] REVIEW_GET_ANSWER batch resp:", resp.ok ? "ok, answer=" + resp.answer : "error: " + (resp.error || "none"));
-           if (resp.ok && resp.answer) {
-             q.answer = resp.answer;
-             dataSource = "review";
-             if (useFirebase && ASSESS_ID && q._id) {
-               await saveAnswerToFirebase(q._id, q.question, resp.answer);
-             }
-             continue; // Skip adding to toFetch since we got the answer
-           }
-         } catch (e) {
-           if (abortRequested) return;
-           console.warn("Review endpoint individual answer failed:", e);
-         }
-       }
-       
-       if (useFirebase && ASSESS_ID && q._id) {
-         try {
-           if (abortRequested) return;
-           const resp = await bgMsg("FIREBASE_GET_ANSWER", { testId: ASSESS_ID, questionId: q._id });
-           if (abortRequested) return;
-           console.log("[MayaAF] FIREBASE_GET_ANSWER batch resp:", resp.ok ? "ok, answer=" + resp.answer : "error: " + (resp.error || "none"));
-           if (resp.ok && resp.answer) {
-             q.answer = resp.answer;
-             dataSource = "firebase";
-             continue;
-           }
-         } catch (e) { /* ignore */ }
-       }
-       
-       if (!useAI) {
-         console.log("[MayaAF] Skipping AI for question:", q._id, "(AI disabled)");
-         continue;
-       }
-       
-       if (abortRequested) return;
-       toFetch.push({ questionId: q._id, question: q.question, options });
-     }
+      for (const q of uncached) {
+        if (abortRequested) return;
+        const options = {
+          option1: q.option1,
+          option2: q.option2,
+          option3: q.option3,
+          option4: q.option4
+        };
+        
+        if (useFirebase && ASSESS_ID && q._id) {
+          try {
+            if (abortRequested) return;
+            const resp = await bgMsg("FIREBASE_GET_ANSWER", { testId: ASSESS_ID, questionId: q._id });
+            if (abortRequested) return;
+            console.log("[MayaAF] FIREBASE_GET_ANSWER batch resp:", resp.ok ? "ok, answer=" + resp.answer : "error: " + (resp.error || "none"));
+            if (resp.ok && resp.answer) {
+              q.answer = resp.answer;
+              dataSource = "firebase";
+              continue;
+            }
+          } catch (e) { /* ignore */ }
+        }
+        
+        if (!useAI) {
+          console.log("[MayaAF] Skipping AI for question:", q._id, "(AI disabled)");
+          continue;
+        }
+        
+        if (abortRequested) return;
+        toFetch.push({ questionId: q._id, question: q.question, options });
+      }
      
      if (abortRequested) return;
      console.log("[MayaAF] resolveAnswersBatch toFetch:", toFetch.length);
