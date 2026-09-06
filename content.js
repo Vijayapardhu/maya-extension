@@ -3,7 +3,7 @@
   window.__mayaAutoFillLoaded = true;
 
   const pathMatch = location.pathname.match(/grand-assessment\/([^/]+)/);
-  const ASSESS_ID = pathMatch ? pathMatch[1] : null;
+  let ASSESS_ID = pathMatch ? pathMatch[1] : null;
   let isDeepDive = location.pathname.includes("emp-skills-deep-dive-in");
   let singleQ = null;
   let deepDiveSolved = 0;
@@ -147,6 +147,10 @@ const postMeta = (meta) => {
     } else if (e.data && e.data.source === "maya-af-hook" && e.data.type === "meta") {
       capturedMeta = e.data.data || null;
       console.log("[MayaAF] Received meta:", capturedMeta);
+      if (capturedMeta && capturedMeta.id && !ASSESS_ID) {
+        ASSESS_ID = capturedMeta.id;
+        console.log("[MayaAF] Updated ASSESS_ID from meta:", ASSESS_ID);
+      }
     }
   });
 
@@ -188,28 +192,34 @@ const postMeta = (meta) => {
   }
 
  async function reviewFetch(payload) {
-   if (abortRequested) return null;
-   try {
-     const cookieHeader = document.cookie || "";
-     const resp = await fetch("https://api.maya.adityauniversity.in/node/api/review-grand-assessment", {
-       method: "POST",
-       headers: {
-         "Content-Type": "application/json",
-         "Cookie": cookieHeader,
-       },
-       body: JSON.stringify(payload),
-       credentials: "include",
-     });
-     const text = await resp.text();
-     console.log("[MayaAF] reviewFetch status:", resp.status, "body:", text.substring(0, 200));
-     if (!resp.ok) throw new Error("HTTP " + resp.status + ": " + text);
-     return JSON.parse(text);
-   } catch (e) {
-     if (abortRequested) return null;
-     console.warn("Review endpoint fetch failed:", e);
-     return null;
-   }
- }
+    if (abortRequested) return null;
+    try {
+      const cookies = await new Promise((resolve) => {
+        if (typeof chrome !== "undefined" && chrome.cookies) {
+          chrome.cookies.getAll({ url: "https://api.maya.adityauniversity.in" }, (c) => resolve(c || []));
+        } else {
+          resolve([]);
+        }
+      });
+      const headers = { "Content-Type": "application/json" };
+      if (cookies.length) {
+        headers["Cookie"] = cookies.map((c) => c.name + "=" + c.value).join("; ");
+      }
+      const resp = await fetch("https://api.maya.adityauniversity.in/node/api/review-grand-assessment", {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(payload),
+      });
+      const text = await resp.text();
+      console.log("[MayaAF] reviewFetch status:", resp.status, "body:", text.substring(0, 200));
+      if (!resp.ok) throw new Error("HTTP " + resp.status + ": " + text);
+      return JSON.parse(text);
+    } catch (e) {
+      if (abortRequested) return null;
+      console.warn("Review endpoint fetch failed:", e);
+      return null;
+    }
+  }
 
  async function loadFirebaseAndAI() {
       if (abortRequested) return;
@@ -846,7 +856,7 @@ async function trySelectRadio(radio, idx) {
     abortRequested = false;
     const stopBtn = $("#maya-af-stop");
     if (stopBtn) stopBtn.style.display = "block";
-    console.log("[MayaAF] autoFillAll start, apiQuestions:", apiQuestions.length, "isDeepDive:", isDeepDive);
+    console.log("[MayaAF] autoFillAll start, ASSESS_ID:", ASSESS_ID, "apiQuestions:", apiQuestions.length, "isDeepDive:", isDeepDive);
     try {
       if (ASSESS_ID) {
         setStatus("Loading answers...");
@@ -1264,9 +1274,15 @@ function startPoller() {
        }
        if (abortRequested) return;
        const rawMeta = document.documentElement.getAttribute("data-maya-af-meta");
-       if (rawMeta) {
-         try { capturedMeta = JSON.parse(rawMeta) || capturedMeta; } catch (e) { /* ignore */ }
-       }
+        if (rawMeta) {
+          try {
+            capturedMeta = JSON.parse(rawMeta) || capturedMeta;
+            if (capturedMeta && capturedMeta.id && !ASSESS_ID) {
+              ASSESS_ID = capturedMeta.id;
+              console.log("[MayaAF] Updated ASSESS_ID from poller meta:", ASSESS_ID);
+            }
+          } catch (e) { /* ignore */ }
+        }
      }, 400);
    }
 
@@ -1333,6 +1349,7 @@ function startWatchdog() {
     if (!isDeepDive) loadQuestions().catch((e) => setStatus("Error: " + e.message));
     startPoller();
     if (isDeepDive) startWatchdog();
+    console.log("[MayaAF] init settings:", { autoRun, autoAdvance, useReviewApi, useFirebase, useAI, isDeepDive });
 
     const observer = new MutationObserver(() => {
       if (isDeepDive || !autoRun || running) return;
