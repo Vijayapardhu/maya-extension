@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Maya AutoPilot</title>
+  <style>
+    body { width: 320px; font-family: Segoe UI, Arial, sans-serif; font-size: 13px; margin: 0; background: #111827; color: #e5e7eb; }
+    .wrap { padding: 12px; }
+    h3 { margin: 0 0 6px; font-size: 14px; color: #fff; }
+    #msg { margin: 0 0 10px; font-size: 12px; color: #9ca3af; word-break: break-word; line-height: 1.4; }
+    .opt { display: flex; align-items: center; gap: 6px; margin: 6px 0; cursor: pointer; }
+    .opt input { margin: 0; }
+    details { margin-top: 10px; border-top: 1px solid #374151; padding-top: 8px; }
+    summary { cursor: pointer; font-size: 12px; color: #d1d5db; font-weight: 600; outline: none; }
+    details[open] summary { margin-bottom: 8px; }
+    .group { border: 1px solid #374151; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+    .group label { display: flex; align-items: flex-start; gap: 6px; margin: 3px 0; cursor: pointer; font-size: 12px; }
+    textarea { width: 100%; box-sizing: border-box; height: 90px; background: #1f2937; color: #e5e7eb; border: 1px solid #374151; border-radius: 8px; padding: 8px; font-size: 12px; resize: vertical; }
+    .btnrow { display: flex; gap: 8px; margin-top: 8px; }
+    button { flex: 1; border: none; border-radius: 8px; padding: 7px; font-size: 12px; font-weight: 600; cursor: pointer; color: #fff; }
+    #saveJson { background: #008730; }
+    #clearJson { background: #374151; }
+    .status-row { display: flex; align-items: center; gap: 8px; padding: 8px; background: #1f2937; border-radius: 8px; margin: 8px 0; font-size: 11px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .status-dot.connected { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+    .status-dot.disconnected { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+    .status-dot.pending { background: #f59e0b; animation: pulse 1.2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+    .stat { font-size: 11px; color: #9ca3af; margin: 4px 0; }
+    .stat strong { color: #e5e7eb; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h3>Maya AutoPilot</h3>
+    <div id="msg">Automatic mode - answers are taken from the page automatically. No input needed.</div>
+
+    <label class="opt"><input type="checkbox" id="autoRun"> Auto-run when questions load</label>
+    <label class="opt"><input type="checkbox" id="autoAdvance"> Auto-advance to next question</label>
+
+    <details open>
+      <summary>AI & Firebase (auto-answer & cache)</summary>
+      <div class="status-row">
+        <span id="firebaseDot" class="status-dot pending"></span>
+        <span id="firebaseStatus">Firebase: checking...</span>
+      </div>
+      <div class="status-row">
+        <span id="aiDot" class="status-dot pending"></span>
+        <span id="aiStatus">OpenRouter AI: configured</span>
+      </div>
+      <div class="stat">Cached answers: <strong id="cachedCount">-</strong></div>
+      <div class="btnrow">
+        <button id="testFirebase">Test Firebase</button>
+        <button id="testAI">Test AI</button>
+      </div>
+    </details>
+
+    <details>
+      <summary>Advanced (optional)</summary>
+      <div class="group">
+        <label><input type="radio" name="src" value="api"> Automatic - page network only (no API)</label>
+        <label><input type="radio" name="src" value="pasted"> Use pasted JSON below</label>
+      </div>
+      <textarea id="jsonInput" placeholder="Paste JSON here only if you want to use it manually"></textarea>
+      <div class="btnrow">
+        <button id="saveJson">Save</button>
+        <button id="clearJson">Clear</button>
+      </div>
+    </details>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

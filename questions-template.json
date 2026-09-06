@@ -1,0 +1,202 @@
+[
+  {
+    "question": "What sum would yield a simple interest of $630 in 7 years at 8% p.a. rate of interest?",
+    "answer": "$1125"
+  },
+  {
+    "question": "What principal will amount to Rs. 570 at 4% annum in 3 1/2 years?",
+    "answer": "Rs. 500"
+  },
+  {
+    "question": "Navdeep lends an amount of 4800 to Amarjeet. He gives a part of money at 5% interest and the rest of the amount at 6% Interest. The total Interest, at the end of 5 years, amounted to 1290. Can you tell us the amount of money that Navdeep gave to Amarjeet at 6% interest.",
+    "answer": "2400"
+  },
+  {
+    "question": "The rate of interest in two banks DNB and HBI are in the ratio of 7 : 8. If a person invested some amount in both the banks and received equal amounts as interst from both the banks in two year. The ratio of amount invested in DNB and HBI respectively is.",
+    "answer": "8 : 7"
+  },
+  {
+    "question": "A sum of Rs. 1600 amounts to Rs. 1840 in three years at S.I. If the rate of interest is increased by 10% then the amount will increase to",
+    "answer": "₹2240"
+  },
+  {
+    "question": "The simple interest on a certain sum at 5% per annum for 3 years and 4 years differ by Rs. 42. The sum is",
+    "answer": "Rs. 840"
+  },
+  {
+    "question": "One pipe can fill a tank three times as fast as another pipe. If together the two pipes can fill the tank in 36 minutes, then the slower pipe alone will be able to fill the tank in:",
+    "answer": "144 minutes"
+  },
+  {
+    "question": "A works twice as fast as B. If B can complete a work in 12 days independently, the number of days in which A and B can together finish the work in",
+    "answer": "4 days"
+  },
+  {
+    "question": "A, B and C together earn Rs.150 per day while A and C together earn Rs.94 and B and C together earn Rs.76. What is the daily earning of C ?",
+    "answer": "Rs. 20"
+  },
+  {
+    "question": "A military camp had rations for 400 soldiers for 50 days. After 20 days, 100 soldiers were transferred. How long will the remaining food last?",
+    "answer": "40 days"
+  },
+  {
+    "question": "A water filter takes 40 minutes to filter 20 litres of water. Another filter of same specifications takes 30 minutes to filter the same amount of water. If both the filters are used at the same time. Then how long it will take them to filter the 70 litres of water?",
+    "answer": "1 hour"
+  },
+  {
+    "question": "If 8 men and 12 boys finish a job in 15 days, while 20 men and 30 boys finish it in 6 days, the time taken by 16 men and 24 boys to finish it will be:",
+    "answer": "7.5 days"
+  },
+  {
+    "question": "Sanjay's present age is 40% of his father's age, and his father's age is half of his grandfather's age. If the average of their present ages is 51 years, find Sanjay's age 5 years ago.",
+    "answer": "11 years"
+  },
+  {
+    "question": "Qutub is as much younger than Ram as he is older than Tom. If the sum of the ages of Ram and Tom is 50 years, what is definitely the difference between Ram and Qutub's age?",
+    "answer": "14 years"
+  },
+  {
+    "question": "The sum of the ages of Anjali and her mother is 48 years. Six years back her mother's age was twice the age of Anjali. Find the ratio of the present ages of Anjali's mother and Anjali.",
+    "answer": "5:3"
+  },
+  {
+    "question": "Two years ago, the average age of four siblings was 18 years. At present, the youngest is 10 years old and the eldest is twice the youngest. Find the average age of the two middle siblings.",
+    "answer": "22 years"
+  },
+  {
+    "question": "Six years ago, the ratio of the ages of Ramesh and Suresh was 6 : 5, Four years hence, the ratio of their ages will be 11 : 10. What is Suresh's age at present?",
+    "answer": "16 years"
+  },
+  {
+    "question": "There are 23 students in a class. Sumit ranks fourth among the boys in the class. Shivani ranks fifth among the girls in the class. Sumit is one rank below Shivani in the class. No two students hold the same rank in the class. What is Shivani's rank in the class?.",
+    "answer": "6th"
+  },
+  {
+    "question": "In a line of 85 people, Pooja was 66th from the left. After moving forward by 2 positions, what is Pooja's new position from the left?",
+    "answer": "64"
+  },
+  {
+    "question": "In a row of girls, Kamya is fifth from the left and Preeti is sixth from the right When they exchange their position, then Kamya becomes thirteenth from the left. What will be Preeti's position form the right?",
+    "answer": "14th"
+  },
+  {
+    "question": "15 students failed in a class of 62. After removing the names of failed students, a merit order list has been prepared in which the position of Kavya is 26th from the top. What is her position from the bottom?",
+    "answer": "22"
+  },
+  {
+    "question": "In the following letter sequence, how many n's are followed by m but not preceded by h? a g r h t n m b c n m l b u v n m h e r h n m g f e h n m e c n m w q a n m h l b",
+    "answer": "5"
+  },
+  {
+    "question": "In the sequence 5, 6, 8, 5, 9, 9, 6, 1, 1, 3, 8, 2, 6, 9, 8, 4, 2, 1, 5, how many such 3s are there which are not immediately preceded by 5 but are immediately followed by 7?",
+    "answer": "1"
+  },
+  {
+    "question": "In a row of ten boys, when Rohit was shifted by two places towards the left, he became seventh from the left end. What was his earlier position from the right end of the row?",
+    "answer": "Fourth"
+  },
+  {
+    "question": "Six friends (Rachel, Monica, Phoebe, Joey, Chandler, Ross) hosted dinners in different months, from January to June. How many dinners were hosted between Rachel and Chandler? Chandler hosted immediately before Ross. Joey hosted in March, just after Monica. Phoebe hosted in the last month. Rachel hosted before Joey.",
+    "answer": "2"
+  },
+  {
+    "question": "Sonia says her doctor's appointment is between the 11th and 15th of the month. The clinic receptionist says it is scheduled between the 13th and 17th. Which date is the appointment?",
+    "answer": "14th"
+  },
+  {
+    "question": "If the seventh day of a month is three days earlier than Friday, What day will it be on the nineteenth day of the month?",
+    "answer": "Sunday"
+  },
+  {
+    "question": "Anil reaches a place on Friday. He come to know that he was three days earlier than the scheduled day. if he had reached there on the following Sunday, how many days late/ early he would have been?",
+    "answer": "Three days late"
+  },
+  {
+    "question": "If day before yesterday was Thursday, then when will be the Monday?",
+    "answer": "Day after tomorrow"
+  },
+  {
+    "question": "A clock displays 11:59. What is its mirror reflection?",
+    "answer": "12:01"
+  },
+  {
+    "question": "The next to 1974 having the same calendar as that of 1974 was",
+    "answer": "1985"
+  },
+  {
+    "question": "Find the day of the week of  15th February 2028",
+    "answer": "Tuesday"
+  },
+  {
+    "question": "What day of the week will be on 15-03-2030?",
+    "answer": "Friday"
+  },
+  {
+    "question": "If 8th March, 1985 was a Sunday, then what day of the week on 26th July, 1985 ?",
+    "answer": "Friday"
+  },
+  {
+    "question": "The software engineer _______ the legacy codebase for six months by the time the project ends.",
+    "answer": "will have been reviewing"
+  },
+  {
+    "question": "The technical lead _______ the cloud architecture while the client was watching the demo.",
+    "answer": "was debugging"
+  },
+  {
+    "question": "The network engineer _______ the cloud architecture right now to fix the downtime.",
+    "answer": "is debugging"
+  },
+  {
+    "question": "The full-stack developer _______ the user interface modules during the client presentation next week.",
+    "answer": "will be compiling"
+  },
+  {
+    "question": "The technical lead _______ the automation scripts for the last three hours.",
+    "answer": "has been compiling"
+  },
+  {
+    "question": "The DevOps team _______ the client deliverables before the product goes live next Friday.",
+    "answer": "will have optimized"
+  },
+  {
+    "question": "The full-stack developer _______ the cloud architecture two days ago.",
+    "answer": "integrated"
+  },
+  {
+    "question": "The HR manager _______ the API endpoints long before the deadline.",
+    "answer": "had tested"
+  },
+  {
+    "question": "The DevOps team _______ the database schema for hours before finding the root cause.",
+    "answer": "had been optimizing"
+  },
+  {
+    "question": "The scrum master _______ the API endpoints while the client was watching the demo.",
+    "answer": "was deploying"
+  },
+  {
+    "question": "The system administrator _______ the user interface modules at this time tomorrow.",
+    "answer": "will be debugging"
+  },
+  {
+    "question": "The database administrator _______ the security protocols once the budget is approved.",
+    "answer": "will update"
+  },
+  {
+    "question": "The DevOps team _______ the user interface modules during the last release cycle.",
+    "answer": "optimized"
+  },
+  {
+    "question": "The technical lead _______ the production server for hours before finding the root cause.",
+    "answer": "had been integrating"
+  },
+  {
+    "question": "The QA team _______ the legacy codebase by the end of this month.",
+    "answer": "will have integrated"
+  },
+  {
+    "question": "The client _______ the cloud architecture successfully before the deadline.",
+    "answer": "had compiled"
+  }
+]
