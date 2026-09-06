@@ -113,18 +113,39 @@ const postMeta = (meta) => {
     setStatus("Answers captured from the page's network request: " + apiQuestions.length + " questions");
     updateProgress();
     flashPanel();
-    if (!autoRun || running) {
-      if (wasFallback) pendingForceSweep = true;
-      return;
-    }
-    if (wasFallback) {
-      pendingForceSweep = true;
-      autoFillAll();
-    } else {
-      const radios = $$('input[type=radio][name^="question"]');
-      if (radios.length && !radios.some((r) => r.checked)) {
-        if (autoAdvance) autoFillAll();
-        else fillCurrentQuestion(false).then(updateProgress);
+    if (running) return;
+    if (ASSESS_ID && (useReviewApi || useFirebase)) {
+      console.log("[MayaAF] useCapturedData triggering loadFirebaseAndAI");
+      loadFirebaseAndAI().then(() => {
+        console.log("[MayaAF] After loadFirebaseAndAI - answered:", apiQuestions.filter(q => q.answer).length);
+        const answered = apiQuestions.filter(q => q.answer);
+        console.log("[MayaAF] Answered questions:", answered.map(q => ({ id: q._id, answer: q.answer, question: q.question?.substring(0, 50) })));
+        if (answered.length > 0) {
+          setStatus(`Loaded ${answered.length} answers from API/Firebase`);
+        }
+        if (autoRun) {
+          if (wasFallback) {
+            pendingForceSweep = true;
+            autoFillAll();
+          } else {
+            const radios = $$('input[type=radio][name^="question"]');
+            if (radios.length && !radios.some((r) => r.checked)) {
+              if (autoAdvance) autoFillAll();
+              else fillCurrentQuestion(false).then(updateProgress);
+            }
+          }
+        }
+      }).catch((e) => console.warn("[MayaAF] loadFirebaseAndAI failed:", e));
+    } else if (autoRun && !running) {
+      if (wasFallback) {
+        pendingForceSweep = true;
+        autoFillAll();
+      } else {
+        const radios = $$('input[type=radio][name^="question"]');
+        if (radios.length && !radios.some((r) => r.checked)) {
+          if (autoAdvance) autoFillAll();
+          else fillCurrentQuestion(false).then(updateProgress);
+        }
       }
     }
   }
@@ -136,8 +157,21 @@ const postMeta = (meta) => {
     setQuestions([q]);
     setStatus("Captured question from the page - filling...");
     updateProgress();
-    if (autoRun && !running) autoFillAll();
-    else fillCurrentQuestion(false).then(updateProgress);
+    if (ASSESS_ID && (useReviewApi || useFirebase)) {
+      console.log("[MayaAF] captureSingleQuestion triggering loadFirebaseAndAI");
+      loadFirebaseAndAI().then(() => {
+        console.log("[MayaAF] After loadFirebaseAndAI - singleQ answer:", singleQ?.answer);
+        if (singleQ?.answer) {
+          setStatus(`Loaded answer: ${singleQ.answer}`);
+        }
+        if (autoRun && !running) autoFillAll();
+        else fillCurrentQuestion(false).then(updateProgress);
+      }).catch((e) => console.warn("[MayaAF] loadFirebaseAndAI failed:", e));
+    } else if (autoRun && !running) {
+      autoFillAll();
+    } else {
+      fillCurrentQuestion(false).then(updateProgress);
+    }
   }
 
   window.addEventListener("message", (e) => {
