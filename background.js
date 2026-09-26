@@ -32,6 +32,65 @@ let configLoadedAt = 0;
 
 const GEMINI_API_URL_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
+const CURRENT_VERSION = chrome.runtime.getManifest().version;
+const UPDATE_CHECK_URL = "https://raw.githubusercontent.com/Vijayapardhu/maya-extension/main/version.json";
+
+async function checkForUpdate() {
+  try {
+    const resp = await fetch(UPDATE_CHECK_URL, { cache: "no-store" });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const remoteVersion = String(data.version || "").trim();
+    const url = String(data.url || "").trim();
+    if (!remoteVersion) return;
+    if (isNewerVersion(remoteVersion, CURRENT_VERSION)) {
+      await chrome.storage.local.set({ updateAvailable: true, updateVersion: remoteVersion, updateUrl: url || UPDATE_CHECK_URL });
+    } else {
+      await chrome.storage.local.set({ updateAvailable: false, updateVersion: CURRENT_VERSION, updateUrl: "" });
+    }
+  return false;
+}
+    if (isNewer || remoteVersion !== CURRENT_VERSION) {
+      await chrome.storage.local.set({ updateAvailable: true, updateVersion: remoteVersion, updateUrl: url || UPDATE_CHECK_URL });
+    } else {
+      await chrome.storage.local.set({ updateAvailable: false, updateVersion: CURRENT_VERSION, updateUrl: "" });
+    }
+  } catch (e) {
+    console.warn("Update check failed:", e);
+  }
+}
+
+async function initializeUpdateChecker() {
+  await checkForUpdate();
+  chrome.alarms.create("maya-update-check", { periodInMinutes: 60 * 6 });
+}
+
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === "install" || details.reason === "update") {
+    initializeUpdateChecker();
+  }
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  initializeUpdateChecker();
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "maya-update-check") {
+    checkForUpdate();
+  }
+});
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === "CHECK_UPDATE") {
+    checkForUpdate().then(() => {
+      chrome.storage.local.get(["updateAvailable", "updateVersion", "updateUrl"], (s) => {
+        sendResponse({ ok: true, updateAvailable: !!s.updateAvailable, updateVersion: s.updateVersion, updateUrl: s.updateUrl });
+      });
+    });
+    return true;
+  }
+});
 let aiProvider = "openrouter";
 let geminiApiKey = "";
 let geminiModel = DEFAULT_GEMINI_MODEL;

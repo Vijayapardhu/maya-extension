@@ -52,6 +52,26 @@ async function load() {
 
   checkFirebaseStatus();
   checkCachedCount();
+  checkUpdateStatus();
+}
+
+async function checkUpdateStatus() {
+  const banner = $("updateBanner");
+  const versionEl = $("updateVersion");
+  const linkEl = $("updateLink");
+  if (!banner || !versionEl || !linkEl) return;
+  try {
+    const resp = await bgMsg("CHECK_UPDATE", {});
+    if (resp.ok && resp.updateAvailable) {
+      versionEl.textContent = resp.updateVersion || "";
+      linkEl.href = resp.updateUrl || "#";
+      banner.style.display = "flex";
+    } else {
+      banner.style.display = "none";
+    }
+  } catch (e) {
+    banner.style.display = "none";
+  }
 }
 
 ["autoRun", "autoAdvance"].forEach((key) => {
