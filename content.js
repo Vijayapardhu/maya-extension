@@ -67,13 +67,13 @@ const postMeta = (meta) => {
   let byText = new Map();
   let autoRun = true;
   let autoAdvance = true;
-  let useReviewApi = true;
+  // Firebase + AI are always on (no toggles — this is the only answer path).
   let useFirebase = true;
   let useAI = true;
   let running = false;
   let abortRequested = false;
   let matched = 0;
-  let dataSource = "none"; /* "captured" | "api" | "pasted" | "firebase" | "ai" */
+  let dataSource = "none"; /* "captured" | "pasted" | "firebase" | "review" | "ai" */
   let pendingForceSweep = false;
   let capturedMeta = null;
   let lastSubmittedQ = null;
@@ -114,7 +114,7 @@ const postMeta = (meta) => {
     updateProgress();
     flashPanel();
     if (running) return;
-    if (ASSESS_ID && (useReviewApi || useFirebase)) {
+    if (ASSESS_ID && useFirebase) {
       console.log("[MayaAF] useCapturedData triggering loadFirebaseAndAI");
       loadFirebaseAndAI().then(() => {
         console.log("[MayaAF] After loadFirebaseAndAI - answered:", apiQuestions.filter(q => q.answer).length);
@@ -157,7 +157,7 @@ const postMeta = (meta) => {
     setQuestions([q]);
     setStatus("Captured question from the page - filling...");
     updateProgress();
-    if (ASSESS_ID && (useReviewApi || useFirebase)) {
+    if (ASSESS_ID && useFirebase) {
       console.log("[MayaAF] captureSingleQuestion triggering loadFirebaseAndAI");
       loadFirebaseAndAI().then(() => {
         console.log("[MayaAF] After loadFirebaseAndAI - singleQ answer:", singleQ?.answer);
@@ -184,6 +184,10 @@ const postMeta = (meta) => {
       if (capturedMeta && capturedMeta.id && !ASSESS_ID) {
         ASSESS_ID = capturedMeta.id;
         console.log("[MayaAF] Updated ASSESS_ID from meta:", ASSESS_ID);
+      }
+      if (capturedMeta && capturedMeta.id) {
+        chrome.storage.local.set({ currentAssessmentId: capturedMeta.id });
+        console.log("[MayaAF] Stored currentAssessmentId:", capturedMeta.id);
       }
     }
   });
@@ -219,40 +223,63 @@ const postMeta = (meta) => {
 
   /* ---------------- Firebase & AI answer fetching (via background) ---------------- */
 
-  function bgMsg(type, payload) {
+  function bgMsg(type, payload, timeoutMs = 30000) {
     return new Promise((resolve) => {
-      chrome.runtime.sendMessage({ type, ...payload }, (resp) => resolve(resp));
+      let done = false;
+      const timer = setTimeout(() => {
+        if (!done) {
+          done = true;
+          resolve({ ok: false, error: `background timeout after ${Math.round(timeoutMs / 1000)}s (${type}) — service worker may be asleep, retrying` });
+        }
+      }, timeoutMs);
+      try {
+        chrome.runtime.sendMessage({ type, ...payload }, (resp) => {
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          const err = chrome.runtime.lastError;
+          if (err) {
+            resolve({ ok: false, error: String(err.message || err) });
+            return;
+          }
+          if (!resp) {
+            resolve({ ok: false, error: "no response from background (worker asleep?)" });
+            return;
+          }
+          resolve(resp);
+        });
+      } catch (e) {
+        if (!done) {
+          done = true;
+          clearTimeout(timer);
+          resolve({ ok: false, error: String(e) });
+        }
+      }
     });
   }
 
- async function reviewFetch(payload) {
-    if (abortRequested) return null;
-    try {
-      const cookies = await new Promise((resolve) => {
-        if (typeof chrome !== "undefined" && chrome.cookies) {
-          chrome.cookies.getAll({ url: "https://api.maya.adityauniversity.in" }, (c) => resolve(c || []));
-        } else {
-          resolve([]);
-        }
-      });
-      const headers = { "Content-Type": "application/json" };
-      if (cookies.length) {
-        headers["Cookie"] = cookies.map((c) => c.name + "=" + c.value).join("; ");
-      }
-      const resp = await fetch("https://api.maya.adityauniversity.in/node/api/review-grand-assessment", {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(payload),
-      });
-      const text = await resp.text();
-      console.log("[MayaAF] reviewFetch status:", resp.status, "body:", text.substring(0, 200));
-      if (!resp.ok) throw new Error("HTTP " + resp.status + ": " + text);
-      return JSON.parse(text);
-    } catch (e) {
-      if (abortRequested) return null;
-      console.warn("Review endpoint fetch failed:", e);
-      return null;
+  function getOptions(q) {
+    if (!q) return { option1: "", option2: "", option3: "", option4: "" };
+    // Standard shape: option1..option4
+    if (q.option1 || q.option2 || q.option3 || q.option4) {
+      return { option1: q.option1 || "", option2: q.option2 || "", option3: q.option3 || "", option4: q.option4 || "" };
     }
+    // Array shape: options: [...]
+    if (Array.isArray(q.options) && q.options.length) {
+      const arr = q.options.map((o) => (typeof o === "string" ? o : (o && (o.text || o.value || o.answer)) ? String(o.text || o.value || o.answer) : ""));
+      return { option1: arr[0] || "", option2: arr[1] || "", option3: arr[2] || "", option4: arr[3] || "" };
+    }
+    // Lettered shape: optionA..D / option_a / A,B,C,D
+    const pick = (...keys) => {
+      for (const k of keys) if (q[k]) return q[k];
+      return "";
+    };
+    const a = pick("optionA", "optiona", "A", "a", "opt1");
+    const b = pick("optionB", "optionb", "B", "b", "opt2");
+    const c = pick("optionC", "optionc", "C", "c", "opt3");
+    const d = pick("optionD", "optiond", "D", "d", "opt4");
+    if (a || b || c || d) return { option1: a, option2: b, option3: c, option4: d };
+    return { option1: "", option2: "", option3: "", option4: "" };
   }
 
   async function loadFirebaseAndAI() {
@@ -261,112 +288,160 @@ const postMeta = (meta) => {
          console.log("[MayaAF] loadFirebaseAndAI skipped: no ASSESS_ID");
          return;
        }
-       console.log("[MayaAF] loadFirebaseAndAI start, useReviewApi:", useReviewApi, "useFirebase:", useFirebase, "ASSESS_ID:", ASSESS_ID);
-       
-       // Load all answers from review endpoint in one call
-       if (useReviewApi) {
-         try {
-           if (abortRequested) return;
-           console.log("[MayaAF] reviewFetch calling for ASSESS_ID:", ASSESS_ID);
-           const data = await reviewFetch({
-             assessment: ASSESS_ID,
-             test_type: "general",
-             roll_no: capturedMeta?.roll_no || null
-           });
-           if (abortRequested) return;
-           console.log("[MayaAF] reviewFetch response:", data ? "has data" : "null");
-           if (data && data.question_details && Array.isArray(data.question_details)) {
-             const answersMap = {};
-             for (const item of data.question_details) {
-               if (item.question_id && item.answer) {
-                 answersMap[item.question_id] = item.answer;
-               }
-             }
-             console.log("[MayaAF] reviewFetch answers count:", Object.keys(answersMap).length);
-             for (const q of apiQuestions) {
-               if (abortRequested) return;
-               if (answersMap[q._id]) {
-                 q.answer = answersMap[q._id];
-               }
-             }
-             if (abortRequested) return;
-             if (Object.keys(answersMap).length > 0) {
-               firebaseEnabled = true;
-               dataSource = "review";
-               byText = new Map(apiQuestions.map((q) => [normalize(q.question), q]));
-               setStatus(`Loaded ${Object.keys(answersMap).length} answers from review endpoint`);
-               flashPanel();
-               console.log("[MayaAF] reviewFetch loaded answers, returning early");
-               return; // Success, no need to try Firebase
-             }
-           }
-         } catch (e) {
-           if (abortRequested) return;
-           console.warn("Review endpoint load failed:", e);
-         }
-       }
-       
-       // Fall back to Firebase if review endpoint didn't work
-       if (useFirebase) {
-         try {
-           if (abortRequested) return;
-           const resp = await bgMsg("FIREBASE_GET_ANSWERS", { testId: ASSESS_ID });
-           if (abortRequested) return;
-           console.log("[MayaAF] FIREBASE_GET_ANSWERS resp:", resp.ok ? "ok, answers=" + Object.keys(resp.answers || {}).length : "error: " + (resp.error || "none"));
-           if (resp.ok && resp.answers) {
-             for (const q of apiQuestions) {
-               if (abortRequested) return;
-               if (resp.answers[q._id]) {
-                 q.answer = resp.answers[q._id];
-               }
-             }
-             if (abortRequested) return;
-             if (Object.keys(resp.answers).length > 0) {
-               firebaseEnabled = true;
-               dataSource = "firebase";
-               byText = new Map(apiQuestions.map((q) => [normalize(q.question), q]));
-               setStatus(`Loaded ${Object.keys(resp.answers).length} answers from Firebase`);
-               flashPanel();
-             }
-           }
-         } catch (e) {
-           if (abortRequested) return;
-           console.warn("Firebase load failed:", e);
-         }
-      }
-      console.log("[MayaAF] loadFirebaseAndAI done");
-    }
+       console.log("[MayaAF] loadFirebaseAndAI start, ASSESS_ID:", ASSESS_ID);
 
- async function getAnswerFromAI(question, options) {
-     if (abortRequested) return null;
-     if (!useAI) return null;
-     try {
-       if (abortRequested) return null;
-        const resp = await bgMsg("OPENROUTER_ANSWER", { question, options, _useAI: useAI });
-       if (abortRequested) return null;
-       if (resp.ok && resp.answer) {
-         return resp.answer;
+       // ONE test-ID lookup: if the test doc exists it holds ALL answers,
+       // if not, this test has no saved answers yet.
+       const cache = await getFirebaseCache();
+       if (abortRequested) return;
+       if (cache) {
+         let hits = 0;
+         for (const q of apiQuestions) {
+           if (abortRequested) return;
+           if (q._id && cache[q._id]) {
+             q.answer = cache[q._id];
+             hits++;
+           }
+         }
+         if (abortRequested) return;
+         if (hits > 0) {
+           firebaseEnabled = true;
+           dataSource = "firebase";
+           byText = new Map(apiQuestions.map((q) => [normalize(q.question), q]));
+           setStatus(`Loaded ${hits} answers from Firebase`);
+           flashPanel();
+         }
        }
-       console.warn("OpenRouter AI error:", resp.error);
+       console.log("[MayaAF] loadFirebaseAndAI done");
+  }
+
+  // In-memory mirror of tests/{ASSESS_ID}. Fetched ONCE per test ID —
+  // every lookup after that is local, zero Firebase reads.
+  let firebaseCache = null; // { testId, answers: { [qid]: answer } }
+  let pendingSaves = []; // AI answers waiting for one bulk write
+  let reviewLoadedFor = null; // testId already pulled from Review API (once per test)
+
+  async function getFirebaseCache() {
+    if (firebaseCache && firebaseCache.testId === ASSESS_ID) return firebaseCache.answers;
+    if (!ASSESS_ID) return null;
+    try {
+      const resp = await bgMsg("FIREBASE_GET_ANSWERS", { testId: ASSESS_ID }, 30000);
+      const answers = (resp && resp.ok && resp.answers) ? resp.answers : {};
+      const n = Object.keys(answers).length;
+      console.log(`[MayaAF] Firebase test ${ASSESS_ID}: ${n > 0 ? `FOUND (${n} answers)` : "NOT FOUND (no saved answers yet)"}`);
+      firebaseCache = { testId: ASSESS_ID, answers: { ...answers } };
+      return firebaseCache.answers;
+    } catch (e) {
+      console.warn("Firebase load failed:", e);
+      return null;
+    }
+  }
+
+  function cacheAnswer(questionId, questionText, answer) {
+    if (!questionId || !answer) return;
+    if (firebaseCache && firebaseCache.testId === ASSESS_ID) {
+      firebaseCache.answers[questionId] = answer;
+    }
+    if (!pendingSaves.some((s) => s.questionId === questionId)) {
+      pendingSaves.push({ questionId, questionText: questionText || "", answer });
+    }
+  }
+
+  async function flushPendingSaves() {
+    if (!pendingSaves.length || !ASSESS_ID) return;
+    const batch = pendingSaves;
+    pendingSaves = [];
+    try {
+      const resp = await bgMsg("FIREBASE_SAVE_ANSWERS", { testId: ASSESS_ID, answers: batch }, 30000);
+      console.log("[MayaAF] Firebase bulk save:", resp && resp.ok ? `ok (${batch.length})` : "failed: " + ((resp && resp.error) || "unknown"));
+    } catch (e) {
+      console.warn("Firebase bulk save failed:", e);
+      pendingSaves = batch.concat(pendingSaves); // retry next flush
+    }
+  }
+
+  // Review API: exact answers from the platform, one call per test ID.
+  // Runs AFTER Firebase cache, BEFORE AI — returns number of hits.
+  async function loadReviewAnswers(onProgress) {
+    if (!ASSESS_ID || reviewLoadedFor === ASSESS_ID) return 0;
+    reviewLoadedFor = ASSESS_ID;
+    let rollNo = null;
+    try {
+      if (capturedMeta && capturedMeta.roll_no) rollNo = capturedMeta.roll_no;
+      else {
+        const s = await chrome.storage.local.get(["rollNo"]);
+        if (s && s.rollNo) rollNo = s.rollNo;
+      }
+    } catch (e) { /* ignore */ }
+    if (onProgress) onProgress("Checking Review API for exact answers...");
+    console.log("[MayaAF] Review API request, test:", ASSESS_ID, "rollNo:", rollNo ? "set" : "none");
+    let resp = null;
+    try {
+      resp = await bgMsg("REVIEW_GET_ANSWERS", { testId: ASSESS_ID, rollNo }, 45000);
+    } catch (e) {
+      console.warn("[MayaAF] Review API failed:", e);
+      return 0;
+    }
+    if (!resp || !resp.ok) {
+      console.warn("[MayaAF] Review API:", (resp && resp.error) || "no response");
+      if (onProgress && resp && resp.error) onProgress("Review API: " + String(resp.error).slice(0, 120));
+      return 0;
+    }
+    const ids = resp.answers ? Object.keys(resp.answers) : [];
+    console.log(`[MayaAF] Review API: ${ids.length} exact answers`);
+    if (!ids.length) return 0;
+    let hits = 0;
+    const toSave = [];
+    for (const q of apiQuestions) {
+      if (abortRequested) return hits;
+      if (q.answer || !q._id) continue;
+      const a = resp.answers[q._id];
+      if (a !== undefined && a !== null && String(a).trim() !== "") {
+        q.answer = a;
+        dataSource = "review";
+        cacheAnswer(q._id, q.question, a);
+        toSave.push({ questionId: q._id, questionText: q.question, answer: a });
+        hits++;
+      }
+    }
+    if (hits && onProgress) onProgress(`Review API: ${hits} exact answers`);
+    if (toSave.length && useFirebase && ASSESS_ID) {
+      try {
+        await bgMsg("FIREBASE_SAVE_ANSWERS", { testId: ASSESS_ID, answers: toSave }, 30000);
+        pendingSaves = pendingSaves.filter((s) => !toSave.some((t) => t.questionId === s.questionId));
+        console.log("[MayaAF] Review answers saved to Firebase:", toSave.length);
+      } catch (e) { console.warn("Review save failed:", e); }
+    }
+    return hits;
+  }
+
+  async function getAnswerFromAI(question, options) {
+     if (abortRequested) return { answer: null, error: "aborted" };
+     if (!useAI) return { answer: null, error: "AI disabled in settings" };
+     try {
+       if (abortRequested) return { answer: null, error: "aborted" };
+        const resp = await bgMsg("OPENROUTER_ANSWER", { question, options, _useAI: useAI });
+       if (abortRequested) return { answer: null, error: "aborted" };
+       if (resp && resp.ok && resp.answer) {
+         return { answer: resp.answer, error: null };
+       }
+       const err = (resp && resp.error) || "empty AI response";
+       console.warn("OpenRouter AI error:", err);
+       return { answer: null, error: String(err) };
      } catch (e) {
-       if (abortRequested) return null;
+       if (abortRequested) return { answer: null, error: "aborted" };
        console.warn("OpenRouter AI error:", e);
+       return { answer: null, error: String(e) };
      }
-     if (abortRequested) return null;
-     return null;
    }
 
- async function saveAnswerToFirebase(questionId, questionText, answer) {
-      if (abortRequested) return;
-      if (!ASSESS_ID || !useFirebase) return;
-      try {
-        if (abortRequested) return;
-        await bgMsg("FIREBASE_SAVE_ANSWER", { testId: ASSESS_ID, questionId: questionId, questionText: questionText, answer: answer });
-      } catch (e) {
-        if (abortRequested) return;
-        console.warn("Firebase save failed:", e);
-      }
-    }
+  async function saveAnswerToFirebase(questionId, questionText, answer) {
+       if (abortRequested) return;
+       if (!ASSESS_ID || !useFirebase) return;
+       // No direct write — just stage it; flushPendingSaves() does ONE
+       // bulk write per test ID.
+       cacheAnswer(questionId, questionText, answer);
+     }
 
   async function resolveAnswer(q) {
        if (abortRequested) return null;
@@ -375,32 +450,37 @@ const postMeta = (meta) => {
          return q.answer;
        }
        
-       const options = {
-         option1: q.option1,
-         option2: q.option2,
-         option3: q.option3,
-         option4: q.option4
-       };
+       const options = getOptions(q);
        console.log("[MayaAF] resolveAnswer start:", q._id, "useFirebase:", useFirebase, "useAI:", useAI);
-       
+
+       // Test-ID cache lookup (local — zero Firebase reads after first load)
        if (useFirebase && ASSESS_ID && q._id) {
-         try {
-           if (abortRequested) return null;
-           const resp = await bgMsg("FIREBASE_GET_ANSWER", { testId: ASSESS_ID, questionId: q._id });
-           if (abortRequested) return null;
-           console.log("[MayaAF] FIREBASE_GET_ANSWER resp:", resp.ok ? "ok, answer=" + resp.answer : "error: " + (resp.error || "none"));
-           if (resp.ok && resp.answer) {
-             q.answer = resp.answer;
-             dataSource = "firebase";
-             return resp.answer;
-           }
-         } catch (e) { /* ignore */ }
+         if (abortRequested) return null;
+         const cache = await getFirebaseCache();
+         if (abortRequested) return null;
+         if (cache && cache[q._id]) {
+           q.answer = cache[q._id];
+           dataSource = "firebase";
+           console.log("[MayaAF] Firebase cache hit:", q._id);
+           return q.answer;
+         }
+       }
+
+       // Review API: exact platform answers (once per test), before AI
+       if (ASSESS_ID && !q.answer) {
+         if (abortRequested) return null;
+         await loadReviewAnswers();
+         if (abortRequested) return null;
+         if (q.answer) {
+           console.log("[MayaAF] Review API hit:", q._id);
+           return q.answer;
+         }
        }
        
        if (abortRequested) return null;
-       const aiAnswer = await getAnswerFromAI(q.question, options);
+       const { answer: aiAnswer, error: aiError } = await getAnswerFromAI(q.question, options);
        if (abortRequested) return null;
-       console.log("[MayaAF] getAnswerFromAI result:", aiAnswer);
+       console.log("[MayaAF] getAnswerFromAI result:", aiAnswer || aiError);
        if (aiAnswer) {
          q.answer = aiAnswer;
          dataSource = "ai";
@@ -411,7 +491,8 @@ const postMeta = (meta) => {
        }
        
        if (abortRequested) return null;
-       console.log("[MayaAF] resolveAnswer no answer found:", q._id);
+       q._aiError = aiError || "AI returned no answer";
+       console.log("[MayaAF] resolveAnswer no answer found:", q._id, q._aiError);
        return null;
      }
 
@@ -422,31 +503,43 @@ async function resolveAnswersBatch(questions, onProgress) {
      if (!uncached.length) return;
      
      const toFetch = [];
+      // Test-ID cache lookup (local after first load — zero extra reads)
+      if (useFirebase && ASSESS_ID) {
+        const cache = await getFirebaseCache();
+        if (abortRequested) return;
+        if (cache) {
+          let hits = 0;
+          for (const q of uncached) {
+            if (abortRequested) return;
+            if (!q.answer && q._id && cache[q._id]) {
+              q.answer = cache[q._id];
+              dataSource = "firebase";
+              hits++;
+            }
+          }
+          if (hits) console.log("[MayaAF] Firebase cache hits:", hits + "/" + uncached.length);
+        }
+      }
+      // Review API: exact platform answers (once per test), before AI
+      if (ASSESS_ID && uncached.some((q) => !q.answer)) {
+        if (abortRequested) return;
+        await loadReviewAnswers(onProgress);
+        if (abortRequested) return;
+      }
       for (const q of uncached) {
         if (abortRequested) return;
-        const options = {
-          option1: q.option1,
-          option2: q.option2,
-          option3: q.option3,
-          option4: q.option4
-        };
-        
-        if (useFirebase && ASSESS_ID && q._id) {
-          try {
-            if (abortRequested) return;
-            const resp = await bgMsg("FIREBASE_GET_ANSWER", { testId: ASSESS_ID, questionId: q._id });
-            if (abortRequested) return;
-            console.log("[MayaAF] FIREBASE_GET_ANSWER batch resp:", resp.ok ? "ok, answer=" + resp.answer : "error: " + (resp.error || "none"));
-            if (resp.ok && resp.answer) {
-              q.answer = resp.answer;
-              dataSource = "firebase";
-              continue;
-            }
-          } catch (e) { /* ignore */ }
-        }
+        if (q.answer) continue; // filled from cache above
+        const options = getOptions(q);
         
         if (!useAI) {
+          q._aiError = "AI disabled in settings";
           console.log("[MayaAF] Skipping AI for question:", q._id, "(AI disabled)");
+          continue;
+        }
+
+        if (!options.option1 && !options.option2 && !options.option3 && !options.option4) {
+          q._aiError = "no options found on question data";
+          console.log("[MayaAF] Skipping AI for question (no options):", q._id);
           continue;
         }
         
@@ -456,46 +549,94 @@ async function resolveAnswersBatch(questions, onProgress) {
      
      if (abortRequested) return;
      console.log("[MayaAF] resolveAnswersBatch toFetch:", toFetch.length);
-     if (!toFetch.length) return;
+     if (!toFetch.length) {
+       const errs = uncached.map((q) => q._aiError).filter(Boolean);
+       if (onProgress && errs.length) onProgress("AI skipped: " + String(errs[0]).slice(0, 160));
+       return;
+     }
      
      if (onProgress) onProgress(`Fetching ${toFetch.length} answers from AI...`);
      
-     try {
-       if (abortRequested) return;
-       const resp = await bgMsg("OPENROUTER_BATCH_ANSWER", { questions: toFetch, _useAI: useAI });
-       if (abortRequested) return;
-       if (resp.ok && resp.results) {
-         const toSave = [];
-         let success = 0;
-         for (const result of resp.results) {
-           if (abortRequested) return;
-           const q = uncached.find(uq => uq._id === result.questionId);
-           if (q && result.ok && result.answer) {
-             q.answer = result.answer;
-             dataSource = "ai";
-             success++;
-             if (useFirebase && ASSESS_ID && q._id) {
-               toSave.push({ testId: ASSESS_ID, questionId: q._id, questionText: q.question, answer: result.answer });
-             }
-           }
-         }
-         if (abortRequested) return;
-         if (onProgress) onProgress(`AI answered ${success}/${toFetch.length} questions`);
-         
-         // Save all to Firebase in parallel
-         if (toSave.length) {
-           if (onProgress) onProgress(`Saving ${toSave.length} answers to Firebase...`);
-           if (abortRequested) return;
-           await Promise.all(toSave.map(item => bgMsg("FIREBASE_SAVE_ANSWER", item)));
-           if (abortRequested) return;
-           if (onProgress) onProgress("Saved to Firebase");
-         }
-       }
-     } catch (e) {
-       if (abortRequested) return;
-       console.warn("Batch AI error:", e);
-       if (onProgress) onProgress("AI fetch failed");
-     }
+      // Chunk large batches so one 50-question message doesn't hang without
+      // progress (and so a worker timeout only fails one small chunk).
+      const CHUNK = 8;
+      let totalSuccess = 0;
+      let lastErr = "";
+      try {
+        for (let start = 0; start < toFetch.length; start += CHUNK) {
+          if (abortRequested) return;
+          const chunk = toFetch.slice(start, start + CHUNK);
+          const chunkNo = Math.floor(start / CHUNK) + 1;
+          const chunkTotal = Math.ceil(toFetch.length / CHUNK);
+          if (onProgress) onProgress(`AI: batch ${chunkNo}/${chunkTotal} (${chunk.length} questions)...`);
+          console.log(`[MayaAF] AI chunk ${chunkNo}/${chunkTotal}, size:`, chunk.length);
+          if (abortRequested) return;
+          // 8 questions x ~10s each / 3 concurrent ≈ 60s worst case; allow 150s.
+          const resp = await bgMsg("OPENROUTER_BATCH_ANSWER", { questions: chunk, _useAI: useAI }, 150000);
+          if (abortRequested) return;
+          if (!resp) {
+            lastErr = "no response from background";
+            if (onProgress) onProgress("AI fetch failed: no response from background");
+            chunk.forEach((t) => {
+              const qq = uncached.find((uq) => uq._id === t.questionId);
+              if (qq && !qq.answer) qq._aiError = lastErr;
+            });
+            continue;
+          }
+          if (!resp.ok) {
+            lastErr = resp.error || "batch failed";
+            console.warn(`[MayaAF] AI chunk ${chunkNo} error:`, lastErr);
+            if (onProgress) onProgress("AI error: " + String(lastErr).slice(0, 160));
+            chunk.forEach((t) => {
+              const qq = uncached.find((uq) => uq._id === t.questionId);
+              if (qq && !qq.answer) qq._aiError = String(lastErr).slice(0, 300);
+            });
+            continue;
+          }
+          const toSave = [];
+          let success = 0;
+          for (const result of resp.results || []) {
+            if (abortRequested) return;
+            const q = uncached.find(uq => uq._id === result.questionId);
+            if (q && result.ok && result.answer) {
+              q.answer = result.answer;
+              dataSource = "ai";
+              success++;
+              totalSuccess++;
+              if (useFirebase && ASSESS_ID && q._id) {
+                cacheAnswer(q._id, q.question, result.answer);
+                toSave.push({ questionId: q._id, questionText: q.question, answer: result.answer });
+              }
+            } else if (result && !result.ok && result.error) {
+              lastErr = result.error;
+              if (q && !q.answer) q._aiError = String(result.error).slice(0, 300);
+            }
+          }
+          if (abortRequested) return;
+          console.log(`[MayaAF] AI chunk ${chunkNo}/${chunkTotal} done: ${success}/${chunk.length}`);
+          if (onProgress) onProgress(`AI answered ${totalSuccess}/${toFetch.length} questions...`);
+          if (toSave.length && useFirebase && ASSESS_ID) {
+            if (abortRequested) return;
+            // ONE write for the whole chunk (tests/{testId} doc)
+            await bgMsg("FIREBASE_SAVE_ANSWERS", { testId: ASSESS_ID, answers: toSave }, 30000);
+            if (abortRequested) return;
+            // Chunk saved directly — drop those from the pending queue
+            pendingSaves = pendingSaves.filter((s) => !toSave.some((t) => t.questionId === s.questionId));
+          }
+        }
+        if (totalSuccess > 0) {
+          if (onProgress) onProgress(`AI answered ${totalSuccess}/${toFetch.length} questions`);
+        } else if (lastErr) {
+          if (onProgress) onProgress("AI error: " + String(lastErr).slice(0, 200));
+        } else {
+          if (onProgress) onProgress(`AI answered 0/${toFetch.length} questions`);
+        }
+        console.log("[MayaAF] resolveAnswersBatch done, total success:", totalSuccess + "/" + toFetch.length);
+      } catch (e) {
+        if (abortRequested) return;
+        console.warn("Batch AI error:", e);
+        if (onProgress) onProgress("AI fetch failed: " + String(e).slice(0, 160));
+      }
    }
 
   /* ---------------- matching & filling ---------------- */
@@ -508,15 +649,23 @@ async function resolveAnswersBatch(questions, onProgress) {
   }
 
   function findQuestion(idx) {
+    // 1) Try exact label match via byText map
     const qLabel = $('label[for="question' + idx + '"]') ||
       $$("label").find((l) => !l.classList.contains("form-check-label"));
     if (qLabel) {
       const q = byText.get(normalize(qLabel.innerText));
       if (q) return q;
+      // Verify text before falling back to index: avoid matching the wrong
+      // question when normalize differs (HTML entities, extra spaces).
+      const labelText = qLabel.innerText || qLabel.textContent || "";
+      const verified = apiQuestions.find((qq) => textsMatch(qq.question, labelText));
+      if (verified) return verified;
     }
     if (isDeepDive && singleQ) return singleQ;
-    if (dataSource === "api") return null;
-    return apiQuestions[idx] || null;
+    // 2) Index fallback: support both 0-based (question0) and 1-based (question1) pages
+    if (apiQuestions[idx]) return apiQuestions[idx];
+    if (idx > 0 && apiQuestions[idx - 1]) return apiQuestions[idx - 1];
+    return null;
   }
 
   function currentQuestionLabel() {
@@ -566,15 +715,31 @@ async function fillDeepDiveQuestion(q) {
      }
      let radios = $$('input[type=radio][name^="question"]');
      if (!radios.length) radios = $$("input[type=radio]");
-     for (const radio of radios) {
-       if (abortRequested) return { filled: false, error: "aborted", verified: false, idx: 1 };
-       const fc = radio.closest(".form-check");
-       const lbl = fc ? $("label", fc) : null;
-       const text = lbl ? normalize(lbl.innerText) : "";
-       const val = normalize(radio.value);
-       if ((text && text === ans) || (val && val === ans)) {
+     const tryMatch = (pred) => {
+       for (const radio of radios) {
+         const fc = radio.closest(".form-check");
+         const lbl = fc ? $("label", fc) : null;
+         const text = lbl ? normalize(lbl.innerText || lbl.textContent || "") : "";
+         const val = normalize(radio.value);
+         if (pred(text, val)) return radio;
+       }
+       return null;
+     };
+     let hit = tryMatch((text, val) => (text && text === ans) || (val && val === ans));
+     if (!hit) hit = tryMatch((text, val) =>
+       (text && (text.includes(ans) || ans.includes(text))) ||
+       (val && (val.includes(ans) || ans.includes(val))));
+     if (!hit) {
+       const m = ans.match(/(?:option\s*)?\(?\s*([a-d1-4])\s*[).:\-]*/i);
+       if (m) {
+         const map = { a: 0, b: 1, c: 2, d: 3, 1: 0, 2: 1, 3: 2, 4: 3 };
+         const pos = map[m[1].toLowerCase()];
+         if (pos !== undefined && radios[pos]) hit = radios[pos];
+       }
+     }
+     if (hit) {
          if (abortRequested) return { filled: false, error: "aborted", verified: false, idx: 1 };
-         const ok = await trySelectRadio(radio, 1);
+         const ok = await trySelectRadio(hit, 1);
          if (abortRequested) return { filled: false, error: "aborted", verified: false, idx: 1 };
          if (ok) {
            matched++;
@@ -584,14 +749,13 @@ async function fillDeepDiveQuestion(q) {
            flashPanel();
          }
          return { filled: ok, verified: ok, idx: 1, answer: q.answer };
-       }
      }
      if (abortRequested) return { filled: false, error: "aborted", verified: false, idx: 1 };
      const cands = $$("label, button, div, span, li, td").filter((el) => el.childElementCount === 0);
      const anyEl = cands.find((el) => {
        if (abortRequested) return false;
        const t = normalize((el.textContent || "").trim());
-       return t && t === ans;
+       return t && (t === ans || t.includes(ans) || ans.includes(t));
      });
      if (anyEl) {
        if (abortRequested) return { filled: false, error: "aborted", verified: false, idx: 1 };
@@ -738,12 +902,33 @@ async function deepDiveSelfFetch() {
 
   function findRadioForAnswer(idx, ans) {
     const radios = $$('input[type=radio][name="question' + idx + '"]');
+    const clean = (s) => String(s || "").replace(/<br\/>/gi, " ").replace(/\s+/g, " ").trim().toLowerCase();
+    const target = clean(ans);
+    if (!target) return null;
+    // Exact match first
     for (const radio of radios) {
       const fc = radio.closest(".form-check");
       const lbl = fc ? $("label", fc) : null;
       const text = lbl ? normalize(lbl.innerText) : "";
       const val = normalize(radio.value);
-      if ((text && text === ans) || (val && val === ans)) return radio;
+      if ((text && text === target) || (val && val === target)) return radio;
+    }
+    // Contains match (AI often adds/removes punctuation)
+    for (const radio of radios) {
+      const fc = radio.closest(".form-check");
+      const lbl = fc ? $("label", fc) : null;
+      const text = lbl ? normalize(lbl.innerText || lbl.textContent || "") : "";
+      const val = normalize(radio.value);
+      if ((text && (text.includes(target) || target.includes(text))) ||
+          (val && (val.includes(target) || target.includes(val)))) return radio;
+    }
+    // Letter / number fallback: "B", "2", "option 2"
+    const m = target.match(/(?:option\s*)?\(?\s*([a-d1-4])\s*[).:\-]*/i);
+    if (m) {
+      const tok = m[1].toLowerCase();
+      const map = { a: 0, b: 1, c: 2, d: 3, 1: 0, 2: 1, 3: 2, 4: 3 };
+      const pos = map[tok];
+      if (pos !== undefined && radios[pos]) return radios[pos];
     }
     return null;
   }
@@ -771,7 +956,7 @@ async function trySelectRadio(radio, idx) {
     if (isDeepDive) {
       if (!singleQ) return { filled: false, error: "no-data", verified: false, idx: 1 };
       const resolved = await resolveAnswer(singleQ);
-      if (!resolved) return { filled: false, error: "no-answer", verified: false, idx: 1 };
+      if (!resolved) return { filled: false, error: "no-answer: " + (singleQ._aiError || "AI failed"), verified: false, idx: 1 };
       singleQ.answer = resolved;
       return fillDeepDiveQuestion(singleQ);
     }
@@ -785,7 +970,7 @@ async function trySelectRadio(radio, idx) {
     if (!q) return { filled: false, error: "no-match", verified: false, idx };
     console.log("[MayaAF] fillCurrentQuestion idx:", idx, "q._id:", q._id, "q.question:", q.question?.substring(0, 50));
     const resolved = await resolveAnswer(q);
-    if (!resolved) return { filled: false, error: "no-answer", verified: false, idx };
+    if (!resolved) return { filled: false, error: "no-answer: " + (q._aiError || "AI failed"), verified: false, idx };
     q.answer = resolved;
     const ans = normalize(resolved);
     const radio = findRadioForAnswer(idx, ans);
@@ -846,6 +1031,7 @@ async function trySelectRadio(radio, idx) {
     console.log("[MayaAF] sweepQuestions after batch, answered:", apiQuestions.filter(q => q.answer).length);
 
     const passes = forceAll ? 1 : 5;
+    let failures = [];
     for (let pass = 0; pass < passes; pass++) {
       if (abortRequested) break;
       let t = 0;
@@ -859,13 +1045,26 @@ async function trySelectRadio(radio, idx) {
         const sq = squares[t];
         if (!forceAll && isSquareAnswered(sq)) { t++; continue; }
         pending++;
-        if (currentIndex() !== t) {
-          sq.click();
-          const ok = await waitFor(
-            () => currentIndex() === t && $('input[type=radio][name="question' + t + '"]'),
-            2500, 60
-          );
-          if (!ok) { t++; continue; }
+        // Support both 0-based and 1-based question naming on the page
+        const targetIdx = currentIndex() !== t
+          ? (async () => {
+              sq.click();
+              const ok = await waitFor(
+                () => {
+                  const ci = currentIndex();
+                  return (ci === t || ci === t + 1) && (
+                    $('input[type=radio][name="question' + ci + '"]') ||
+                    $('input[type=radio][name^="question"]')
+                  );
+                },
+                2500, 60
+              );
+              return ok;
+            })()
+          : true;
+        if (targetIdx !== true) {
+          const ok = await targetIdx;
+          if (!ok) { failures.push({ q: t + 1, error: "navigation failed" }); t++; continue; }
           await sleep(150);
         }
         const r = await fillCurrentQuestion(true);
@@ -877,7 +1076,9 @@ async function trySelectRadio(radio, idx) {
             return g2 && g2.children[t] && isSquareAnswered(g2.children[t]);
           }, 2500, 60);
         } else {
-          setStatus("Question " + (t + 1) + ": " + (r.error || "unknown") +
+          failures.push({ q: t + 1, error: r.error || "unknown" });
+          const errText = String(r.error || "unknown");
+          setStatus("Question " + (t + 1) + ": " + errText.slice(0, 200) +
             (r.error === "no-option" && r.answer ? " (answer: '" + r.answer + "')" : ""));
         }
         t++;
@@ -885,10 +1086,18 @@ async function trySelectRadio(radio, idx) {
       if (abortRequested) break;
       if (pending === 0) break;
       const stats = getGridStats();
-      if (!stats || stats.answered === 0) break;
+      // Don't give up just because nothing is marked answered yet — AI errors
+      // (bad key/model, 429) need retries across passes, not an early break.
+      if (!stats) break;
+      if (stats.answered === stats.total) break;
       if (abortRequested) break;
       await sleep(300);
     }
+    if (failures.length) {
+      console.warn("[MayaAF] sweep failures:", failures);
+    }
+    // ONE bulk write for any AI answers staged during per-question fills
+    await flushPendingSaves();
   }
 
   async function autoFillAll() {
@@ -921,6 +1130,17 @@ async function trySelectRadio(radio, idx) {
          if (!findQuestionTextEl(singleQ.question)) {
            setStatus("Waiting for the next question...");
            return;
+         }
+         if (abortRequested) return;
+         if (!singleQ.answer && !abortRequested) {
+           setStatus("Asking AI for the answer...");
+           const resolved = await resolveAnswer(singleQ);
+           if (resolved) singleQ.answer = resolved;
+           else {
+             setStatus("Question: no-answer: " + (singleQ._aiError || "AI failed").slice(0, 200));
+             if (abortRequested) return;
+             return;
+           }
          }
          if (abortRequested) return;
          const r = await fillDeepDiveQuestion(singleQ);
@@ -984,6 +1204,7 @@ async function trySelectRadio(radio, idx) {
           : "Run finished - some questions could not be filled automatically.");
       }
     } finally {
+      await flushPendingSaves();
       running = false;
       if (stopBtn) stopBtn.style.display = "none";
       updateProgress();
@@ -1264,14 +1485,16 @@ async function trySelectRadio(radio, idx) {
   /* ---------------- settings sync ---------------- */
 
   function applySettings(settings) {
-    const prevFirebase = useFirebase;
-    const prevAI = useAI;
     if (typeof settings.autoRun === "boolean") autoRun = settings.autoRun;
     if (typeof settings.autoAdvance === "boolean") autoAdvance = settings.autoAdvance;
-    if (typeof settings.useReviewApi === "boolean") useReviewApi = settings.useReviewApi;
-    if (typeof settings.useFirebase === "boolean") useFirebase = settings.useFirebase;
-    if (typeof settings.useAI === "boolean") useAI = settings.useAI;
-    console.log("[MayaAF] applySettings:", { autoRun, autoAdvance, useReviewApi, useFirebase, useAI });
+    // Self-heal: Firebase + AI must stay on. Old installs may have stored false,
+    // which caused "AI disabled in settings" skips. Force back to true.
+    useFirebase = true;
+    useAI = true;
+    if (settings.useFirebase === false || settings.useAI === false) {
+      try { chrome.storage.local.set({ useFirebase: true, useAI: true }); } catch (e) {}
+    }
+    console.log("[MayaAF] applySettings:", { autoRun, autoAdvance, useFirebase, useAI });
     const ar = $("#maya-af-autorun");
     const ad = $("#maya-af-advance");
     if (ar) ar.checked = autoRun;
@@ -1282,7 +1505,7 @@ async function trySelectRadio(radio, idx) {
   }
 
   chrome.storage.local.get(
-    { autoRun: true, autoAdvance: true, useReviewApi: true, useFirebase: true, useAI: true, questionsJson: "", usePastedJson: false },
+    { autoRun: true, autoAdvance: true, useFirebase: true, useAI: true, questionsJson: "", usePastedJson: false },
     (s) => applySettings(s)
   );
   chrome.storage.onChanged.addListener((changes, area) => {
@@ -1376,6 +1599,9 @@ function startWatchdog() {
     apiQuestions = [];
     byText = new Map();
     capturedMeta = null;
+    firebaseCache = null;
+    pendingSaves = [];
+    reviewLoadedFor = null;
   }
 
   function handleNavigation() {
@@ -1397,7 +1623,7 @@ function startWatchdog() {
     if (!isDeepDive) loadQuestions().catch((e) => setStatus("Error: " + e.message));
     startPoller();
     if (isDeepDive) startWatchdog();
-    console.log("[MayaAF] init settings:", { autoRun, autoAdvance, useReviewApi, useFirebase, useAI, isDeepDive });
+    console.log("[MayaAF] init settings:", { autoRun, autoAdvance, useFirebase, useAI, isDeepDive });
 
     const observer = new MutationObserver(() => {
       if (isDeepDive || !autoRun || running) return;

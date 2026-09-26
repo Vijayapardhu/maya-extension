@@ -38,12 +38,14 @@
     <label class="opt"><input type="checkbox" id="autoRun"> Auto-run when questions load</label>
     <label class="opt"><input type="checkbox" id="autoAdvance"> Auto-advance to next question</label>
 
-    <label class="opt"><input type="checkbox" id="useReviewApi"> Use review API (recommended)</label>
-    <label class="opt"><input type="checkbox" id="useFirebase"> Use Firebase cache</label>
-    <label class="opt"><input type="checkbox" id="useAI"> Use OpenRouter AI</label>
+    <div class="stat">Answer path: <strong>Firebase → Review API → AI</strong> (always on)</div>
+    <div class="group" style="margin-top:8px;">
+      <label style="font-size:12px;color:#d1d5db;">Roll number <span style="color:#6b7280;">(for Review API — auto-detected from the page if available)</span></label>
+      <input id="rollNo" type="text" placeholder="26B21CS058" style="width:100%;box-sizing:border-box;background:#1f2937;color:#e5e7eb;border:1px solid #374151;border-radius:6px;padding:6px;font-size:12px;margin-top:4px;">
+    </div>
 
     <details open>
-      <summary>AI & Firebase (auto-answer & cache)</summary>
+      <summary>Firebase · Review API · AI</summary>
       <div class="status-row">
         <span id="firebaseDot" class="status-dot pending"></span>
         <span id="firebaseStatus">Firebase: checking...</span>
@@ -51,6 +53,23 @@
       <div class="status-row">
         <span id="aiDot" class="status-dot pending"></span>
         <span id="aiStatus">OpenRouter AI: configured</span>
+      </div>
+      <div class="group" style="margin-top:6px;">
+        <label style="font-size:12px;color:#d1d5db;margin-bottom:4px;">AI provider</label>
+        <label><input type="radio" name="aiProvider" value="openrouter"> OpenRouter (shared free models)</label>
+        <label><input type="radio" name="aiProvider" value="gemini"> Gemini (bring your own API key)</label>
+      </div>
+      <div id="geminiFields" class="group" style="margin-top:6px;display:none;">
+        <label style="font-size:11px;color:#9ca3af;">Gemini API key</label>
+        <input id="geminiApiKey" type="password" placeholder="AIza..." style="width:100%;box-sizing:border-box;background:#1f2937;color:#e5e7eb;border:1px solid #374151;border-radius:6px;padding:6px;font-size:12px;margin-top:2px;">
+        <label style="font-size:11px;color:#9ca3af;margin-top:4px;">Model</label>
+        <select id="geminiModel" style="width:100%;box-sizing:border-box;background:#1f2937;color:#e5e7eb;border:1px solid #374151;border-radius:6px;padding:6px;font-size:12px;margin-top:2px;">
+          <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+          <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+          <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+          <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash (experimental)</option>
+          <option value="gemini-1.5-flash-8b">Gemini 1.5 Flash 8B</option>
+        </select>
       </div>
       <div class="stat">Cached answers: <strong id="cachedCount">-</strong></div>
       <div class="btnrow">

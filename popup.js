@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
 
-const defaults = { autoRun: true, autoAdvance: true, usePastedJson: false, questionsJson: "", useReviewApi: true, useFirebase: true, useAI: true };
+const defaults = { autoRun: true, autoAdvance: true, usePastedJson: false, questionsJson: "", rollNo: "", aiProvider: "openrouter", geminiApiKey: "", geminiModel: "gemini-2.0-flash" };
 
 function hasValidJson(raw) {
   try {
@@ -12,18 +12,21 @@ function hasValidJson(raw) {
   }
 }
 
+function toggleGeminiFields(provider) {
+  const fields = $("geminiFields");
+  if (!fields) return;
+  fields.style.display = provider === "gemini" ? "block" : "none";
+}
+
 async function load() {
   const s = await chrome.storage.local.get(defaults);
+  try { await chrome.storage.local.set({ useFirebase: true, useAI: true }); } catch (e) {}
   const runEl = $("autoRun");
   const advEl = $("autoAdvance");
-  const reviewEl = $("useReviewApi");
-  const firebaseEl = $("useFirebase");
-  const aiEl = $("useAI");
-  if (runEl) runEl.checked = s.autoRun;
-  if (advEl) advEl.checked = s.autoAdvance;
-  if (reviewEl) reviewEl.checked = s.useReviewApi;
-  if (firebaseEl) firebaseEl.checked = s.useFirebase;
-  if (aiEl) aiEl.checked = s.useAI;
+  const rollEl = $("rollNo");
+  if (runEl) runEl.checked = s.autoRun !== false;
+  if (advEl) advEl.checked = s.autoAdvance !== false;
+  if (rollEl) rollEl.value = s.rollNo || "";
   const valid = hasValidJson(s.questionsJson);
   if (valid) {
     $("jsonInput").value = typeof s.questionsJson === "string" ? s.questionsJson : JSON.stringify(s.questionsJson, null, 2);
@@ -37,15 +40,52 @@ async function load() {
   if (!usePasted) {
     $("msg").textContent = "Automatic mode - answers are taken from the page automatically. No input needed.";
   }
+
+  const prov = s.aiProvider || "openrouter";
+  const provEl = document.querySelector('input[name="aiProvider"][value="' + prov + '"]');
+  if (provEl) provEl.checked = true;
+  toggleGeminiFields(prov);
+  const keyEl = $("geminiApiKey");
+  if (keyEl) keyEl.value = s.geminiApiKey || "";
+  const modelEl = $("geminiModel");
+  if (modelEl) modelEl.value = s.geminiModel || "gemini-2.0-flash";
+
   checkFirebaseStatus();
   checkCachedCount();
 }
 
-["autoRun", "autoAdvance", "useReviewApi", "useFirebase", "useAI"].forEach((id) => {
-  $(id).addEventListener("change", async (e) => {
-    await chrome.storage.local.set({ [id]: e.target.checked });
+["autoRun", "autoAdvance"].forEach((key) => {
+  const el = $(key);
+  if (el) el.addEventListener("change", async (e) => {
+    await chrome.storage.local.set({ [key]: e.target.checked });
   });
 });
+
+const rollInput = $("rollNo");
+if (rollInput) rollInput.addEventListener("change", async (e) => {
+  await chrome.storage.local.set({ rollNo: (e.target.value || "").trim() });
+});
+
+document.querySelectorAll('input[name="aiProvider"]').forEach((r) => {
+  r.addEventListener("change", async (e) => {
+    toggleGeminiFields(e.target.value);
+    await chrome.storage.local.set({ aiProvider: e.target.value });
+  });
+});
+
+const geminiKeyInput = $("geminiApiKey");
+if (geminiKeyInput) {
+  geminiKeyInput.addEventListener("change", async (e) => {
+    await chrome.storage.local.set({ geminiApiKey: (e.target.value || "").trim() });
+  });
+}
+
+const geminiModelInput = $("geminiModel");
+if (geminiModelInput) {
+  geminiModelInput.addEventListener("change", async (e) => {
+    await chrome.storage.local.set({ geminiModel: (e.target.value || "").trim() });
+  });
+}
 
 document.querySelectorAll('input[name="src"]').forEach((r) => {
   r.addEventListener("change", async (e) => {
