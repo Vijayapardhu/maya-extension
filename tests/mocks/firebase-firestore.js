@@ -71,3 +71,15 @@ export function limit(n) {
 export function serverTimestamp() {
   return { _serverTimestamp: true };
 }
+
+export function documentId() {
+  return '__name__';
+}
+
+export function writeBatch() {
+  const ops = [];
+  return {
+    set: (ref, data) => ops.push(() => { store[ref.path] = { ...(store[ref.path] || {}), ...data }; }),
+    commit: async () => ops.forEach((op) => op()),
+  };
+}

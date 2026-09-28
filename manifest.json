@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Maya AutoPilot",
-  "version": "1.3.9",
-  "description": "Auto-fill answers in Maya Grand Assessments with Firebase caching, OpenRouter AI, and Gemini BYOK support.",
+  "version": "1.3.10",
+  "description": "Auto-fill answers in Maya Grand Assessments using a shared answer bank, OpenRouter AI, and your own Gemini API key.",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",

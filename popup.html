@@ -4,30 +4,70 @@
   <meta charset="utf-8">
   <title>Maya AutoPilot</title>
   <style>
-    body { width: 320px; font-family: Segoe UI, Arial, sans-serif; font-size: 13px; margin: 0; background: #111827; color: #e5e7eb; }
+    :root {
+      --bg: #111827;
+      --surface: #1f2937;
+      --border: #374151;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --green: #008730;
+      --blue: #2563eb;
+      --indigo: #4338ca;
+      --teal: #0f766e;
+      --slate: #4b5563;
+    }
+    body { width: 320px; font-family: Segoe UI, Arial, sans-serif; font-size: 13px; margin: 0; background: var(--bg); color: var(--text); }
     .wrap { padding: 12px; }
     h3 { margin: 0 0 6px; font-size: 14px; color: #fff; }
-    #msg { margin: 0 0 10px; font-size: 12px; color: #9ca3af; word-break: break-word; line-height: 1.4; }
+    #msg { margin: 0 0 10px; font-size: 12px; color: var(--muted); word-break: break-word; line-height: 1.4; }
     .opt { display: flex; align-items: center; gap: 6px; margin: 6px 0; cursor: pointer; }
     .opt input { margin: 0; }
-    details { margin-top: 10px; border-top: 1px solid #374151; padding-top: 8px; }
+    details { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
     summary { cursor: pointer; font-size: 12px; color: #d1d5db; font-weight: 600; outline: none; }
     details[open] summary { margin-bottom: 8px; }
-    .group { border: 1px solid #374151; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+    .group { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
     .group label { display: flex; align-items: flex-start; gap: 6px; margin: 3px 0; cursor: pointer; font-size: 12px; }
-    textarea { width: 100%; box-sizing: border-box; height: 90px; background: #1f2937; color: #e5e7eb; border: 1px solid #374151; border-radius: 8px; padding: 8px; font-size: 12px; resize: vertical; }
+    textarea { width: 100%; box-sizing: border-box; height: 90px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-size: 12px; resize: vertical; }
+    input[type=text], input[type=password] { width: 100%; box-sizing: border-box; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px; font-size: 12px; }
+    input::placeholder { color: #6b7280; }
     .btnrow { display: flex; gap: 8px; margin-top: 8px; }
-    button { flex: 1; border: none; border-radius: 8px; padding: 7px; font-size: 12px; font-weight: 600; cursor: pointer; color: #fff; }
-    #saveJson { background: #008730; }
-    #clearJson { background: #374151; }
-    .status-row { display: flex; align-items: center; gap: 8px; padding: 8px; background: #1f2937; border-radius: 8px; margin: 8px 0; font-size: 11px; }
+    /* Every button gets a background here - a bare <button> renders light with
+       white text and is invisible. */
+    button { flex: 1; border: none; border-radius: 8px; padding: 7px; font-size: 12px; font-weight: 600; cursor: pointer; color: #fff; background: var(--slate); }
+    button:hover:not(:disabled) { filter: brightness(1.15); }
+    button:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
+    button.active { outline: 2px solid #60a5fa; outline-offset: -2px; }
+    button:disabled { opacity: 0.6; cursor: default; }
+    #saveJson, #useGemini { background: var(--green); }
+    #clearJson, #useOpenRouter { background: var(--slate); }
+    #connectGemini { background: var(--blue); }
+    #testStore { background: var(--teal); }
+    #testAI { background: var(--indigo); }
+    /* model picker - a native suggestion popup cannot be styled and renders
+       light, so the list is built here instead */
+    .combo { position: relative; margin-top: 2px; display: flex; }
+    .combo-input { flex: 1; min-width: 0; border-radius: 6px 0 0 6px; font-family: Consolas, "SF Mono", Menlo, monospace; font-size: 11.5px; }
+    .combo-btn { flex: 0 0 30px; padding: 0; display: flex; align-items: center; justify-content: center; background: var(--surface); border: 1px solid var(--border); border-left: none; border-radius: 0 6px 6px 0; color: var(--muted); }
+    .combo-btn:hover { filter: none; color: var(--text); }
+    .combo-btn:focus-visible { outline: 2px solid #60a5fa; outline-offset: -2px; }
+    .combo-btn svg { transition: transform 0.15s ease; }
+    .combo-btn[aria-expanded="true"] { color: var(--text); }
+    .combo-btn[aria-expanded="true"] svg { transform: rotate(180deg); }
+    .combo-list { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0; margin: 0; padding: 4px; list-style: none; background: #0b1220; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 14px 30px rgba(0,0,0,0.6); max-height: 176px; overflow-y: auto; }
+    .combo-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: 6px; font-size: 12px; color: var(--text); cursor: pointer; }
+    .combo-list li.sel, .combo-list li:hover { background: #1f2937; }
+    .combo-list li .mid { display: flex; flex-direction: column; min-width: 0; }
+    .combo-list li .id { font-family: Consolas, "SF Mono", Menlo, monospace; font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+    .combo-list li .tick { color: #22c55e; font-weight: 700; flex: 0 0 auto; }
+    .combo-list li.custom .name { color: #93c5fd; }
+    .status-row { display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--surface); border-radius: 8px; margin: 8px 0; font-size: 11px; }
     .status-dot { width: 8px; height: 8px; border-radius: 50%; }
     .status-dot.connected { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
     .status-dot.disconnected { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
     .status-dot.pending { background: #f59e0b; animation: pulse 1.2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
-    .stat { font-size: 11px; color: #9ca3af; margin: 4px 0; }
-    .stat strong { color: #e5e7eb; }
+    .stat { font-size: 11px; color: var(--muted); margin: 4px 0; }
+    .stat strong { color: var(--text); }
   </style>
 </head>
 <body>
@@ -42,42 +82,44 @@
     <label class="opt"><input type="checkbox" id="autoRun"> Auto-run when questions load</label>
     <label class="opt"><input type="checkbox" id="autoAdvance"> Auto-advance to next question</label>
 
-    <div class="stat">Answer path: <strong>Firebase → Review API → AI</strong> (always on)</div>
-    <div class="group" style="margin-top:8px;">
-      <label style="font-size:12px;color:#d1d5db;">Roll number <span style="color:#6b7280;">(for Review API — auto-detected from the page if available)</span></label>
-      <input id="rollNo" type="text" placeholder="26B21CS058" style="width:100%;box-sizing:border-box;background:#1f2937;color:#e5e7eb;border:1px solid #374151;border-radius:6px;padding:6px;font-size:12px;margin-top:4px;">
-    </div>
-
     <details open>
-      <summary>Firebase · Review API · AI</summary>
+      <summary>Answers &amp; AI</summary>
       <div class="status-row">
-        <span id="firebaseDot" class="status-dot pending"></span>
-        <span id="firebaseStatus">Firebase: checking...</span>
+        <span id="storeDot" class="status-dot pending"></span>
+        <span id="storeStatus">Answer store: checking...</span>
       </div>
       <div class="status-row">
         <span id="aiDot" class="status-dot pending"></span>
-        <span id="aiStatus">OpenRouter AI: configured</span>
+        <span id="aiStatus">Checking AI provider...</span>
       </div>
       <div class="group" style="margin-top:6px;">
         <label style="font-size:12px;color:#d1d5db;margin-bottom:4px;">AI provider</label>
-        <label><input type="radio" name="aiProvider" value="openrouter"> OpenRouter (shared free models)</label>
-        <label><input type="radio" name="aiProvider" value="gemini"> Gemini (bring your own API key)</label>
+        <div class="btnrow" style="margin-top:0;">
+          <button id="useGemini">Use Gemini</button>
+          <button id="useOpenRouter">Use OpenRouter</button>
+        </div>
+        <div style="font-size:10px;color:#6b7280;margin-top:4px;">Gemini is the default. OpenRouter is only used when you pick it here.</div>
       </div>
       <div id="geminiFields" class="group" style="margin-top:6px;display:none;">
         <label style="font-size:11px;color:#9ca3af;">Gemini API key</label>
-        <input id="geminiApiKey" type="password" placeholder="AIza..." style="width:100%;box-sizing:border-box;background:#1f2937;color:#e5e7eb;border:1px solid #374151;border-radius:6px;padding:6px;font-size:12px;margin-top:2px;">
-        <label style="font-size:11px;color:#9ca3af;margin-top:4px;">Model</label>
-        <select id="geminiModel" style="width:100%;box-sizing:border-box;background:#1f2937;color:#e5e7eb;border:1px solid #374151;border-radius:6px;padding:6px;font-size:12px;margin-top:2px;">
-          <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-          <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-          <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-          <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash (experimental)</option>
-          <option value="gemini-1.5-flash-8b">Gemini 1.5 Flash 8B</option>
-        </select>
+        <input id="geminiApiKey" type="password" placeholder="AIza...">
+        <label for="geminiModel" style="font-size:11px;color:#9ca3af;margin-top:6px;">Model</label>
+        <div class="combo">
+          <input id="geminiModel" class="combo-input" placeholder="gemini-flash-latest" spellcheck="false" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="modelList">
+          <button id="modelToggle" class="combo-btn" type="button" tabindex="-1" aria-label="Show model list" aria-expanded="false">
+            <svg viewBox="0 0 12 8" width="11" height="7" aria-hidden="true"><path d="M1 1.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <ul id="modelList" class="combo-list" role="listbox" aria-label="Gemini models" hidden></ul>
+        </div>
+        <div class="btnrow">
+          <button id="connectGemini">Connect</button>
+        </div>
+        <div id="connectStatus" style="font-size:11px;color:#9ca3af;margin-top:6px;line-height:1.4;word-break:break-word;">Press Connect to test the key. Nothing is saved unless the test passes.</div>
+        <div style="font-size:10px;color:#6b7280;margin-top:4px;">Type any Gemini model ID, or pick one below. If a model is retired, the next one is tried automatically.</div>
       </div>
-      <div class="stat">Cached answers: <strong id="cachedCount">-</strong></div>
+      <div class="stat">Cached answers: <strong id="cachedCount">-</strong> &nbsp;·&nbsp; Shared questions: <strong id="sharedCount">-</strong></div>
       <div class="btnrow">
-        <button id="testFirebase">Test Firebase</button>
+        <button id="testStore">Test Cache</button>
         <button id="testAI">Test AI</button>
       </div>
     </details>

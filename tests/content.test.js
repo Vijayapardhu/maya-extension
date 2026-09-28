@@ -10,6 +10,21 @@ describe('content.js', () => {
     expect(() => new Function(contentScript)).not.toThrow();
   });
 
+  it('never shows the storage backend name to the user', () => {
+    // Everything setStatus()/textContent can put in the panel.
+    const shown = [...contentScript.matchAll(/setStatus\(\s*[`'"]([^`'"]*)[`'"]/g)].map((m) => m[1]);
+    expect(shown.length).toBeGreaterThan(5);
+    for (const s of shown) expect(s).not.toMatch(/firebase/i);
+
+    const assigned = [...contentScript.matchAll(/\.(?:textContent|innerText|innerHTML)\s*=\s*[`'"]([^`'"]*)[`'"]/g)].map((m) => m[1]);
+    for (const s of assigned) expect(s).not.toMatch(/firebase/i);
+
+    // Errors surfaced to the panel must not name it either.
+    const bg = fs.readFileSync(path.join(process.cwd(), 'background.js'), 'utf-8');
+    const errors = [...bg.matchAll(/error:\s*[`'"]([^`'"]*)[`'"]/g)].map((m) => m[1]);
+    for (const e of errors) expect(e).not.toMatch(/firebase|firestore/i);
+  });
+
   it('should execute in jsdom without throwing', () => {
     const originalMutationObserver = global.MutationObserver;
     const originalSetInterval = global.setInterval;
@@ -40,6 +55,71 @@ describe('content.js', () => {
       global.clearInterval = originalClearInterval;
       intervals.forEach(clearInterval);
     }
+  });
+});
+
+describe('content.js stores every question', () => {
+  const runWithSent = async (questions) => {
+    const sent = [];
+    const originalSend = chrome.runtime.sendMessage;
+    const originalSetInterval = global.setInterval;
+    const intervals = [];
+    global.setInterval = vi.fn((fn, ms) => {
+      const id = originalSetInterval(fn, ms);
+      intervals.push(id);
+      return id;
+    });
+    chrome.runtime.sendMessage = (message, callback) => {
+      sent.push(message);
+      const response = { ok: true, stored: message.questions ? message.questions.length : 0 };
+      if (callback) callback(response);
+      return Promise.resolve(response);
+    };
+    try {
+      delete window.__mayaAutoFillLoaded;
+      const wrapped = contentScript.replace(
+        /\n\s*init\(\);\s*\n\}\)\(\);\s*$/,
+        '\n  return { setQuestions };\n})();'
+      );
+      expect(wrapped).not.toBe(contentScript);
+      const api = new Function('return ' + wrapped)();
+      api.setQuestions(questions);
+      await new Promise((r) => setTimeout(r, 20));
+      return sent;
+    } finally {
+      chrome.runtime.sendMessage = originalSend;
+      global.setInterval = originalSetInterval;
+      intervals.forEach(clearInterval);
+    }
+  };
+
+  const questions = [
+    { _id: 'q1', question: 'First question?', option1: 'A', option2: 'B', option3: 'C', option4: 'D' },
+    { _id: 'q2', question: 'Second question?', option1: 'W', option2: 'X', option3: 'Y', option4: 'Z' },
+  ];
+
+  it('sends every question with its id, text and options', async () => {
+    const sent = await runWithSent(questions);
+    const store = sent.find((m) => m.type === 'STORE_QUESTIONS');
+    expect(store).toBeTruthy();
+    expect(store.testId).toBe('test-123');
+    expect(store.questions).toHaveLength(2);
+    expect(store.questions[0]).toEqual({
+      questionId: 'q1',
+      questionText: 'First question?',
+      options: { option1: 'A', option2: 'B', option3: 'C', option4: 'D' },
+    });
+  });
+
+  it('does not send the same question twice', async () => {
+    const sent = await runWithSent(questions);
+    expect(sent.filter((m) => m.type === 'STORE_QUESTIONS')).toHaveLength(1);
+  });
+
+  it('sends only the newly seen questions on a later set', async () => {
+    const sent = await runWithSent(questions);
+    const store = sent.find((m) => m.type === 'STORE_QUESTIONS');
+    expect(store.questions.map((q) => q.questionId)).toEqual(['q1', 'q2']);
   });
 });
 

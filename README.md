@@ -64,9 +64,25 @@ added.
 
 - **Auto-run when questions load** (default on)
 - **Auto-advance to next question** (default on)
+- **Use Gemini / Use OpenRouter** - Gemini is the default. Paste your Gemini API
+  key, pick a model, and press **Connect**: the key is only saved if a real
+  request succeeds. **Use OpenRouter** switches to the shared free models.
 - **Advanced (optional)** - Pasted JSON: only if you want a manual answer source
   for grand assessments: paste the full response of
   `get-grand-assessment-questions-by-id` from the Network tab, save.
+
+## Answer store
+
+Questions and answers are kept in a shared store so repeat questions are
+answered instantly, for you and for everyone else:
+
+- `tests/{testId}` - one read covers a whole test: question id -> answer.
+- `questions/{hash}` - keyed by a hash of the question text, so the same question
+  is found even on a different test. Each record holds the question text, the
+  four options, and the answers per test.
+
+Every question a test contains is written when it is first seen, so the bank
+grows even for questions nobody has answered yet.
 
 ## Troubleshooting
 
@@ -88,10 +104,10 @@ added.
 
 ## Files
 
-- `manifest.json` - MV3 manifest (v1.3.9, "Maya AutoPilot")
+- `manifest.json` - MV3 manifest (v1.3.10, "Maya AutoPilot")
 - `hook.js` - injects `hook-injected.js` (external extension file, CSP-safe)
 - `hook-injected.js` - main-world fetch/XHR capture
 - `content.js` - matching, clicking, sweep engine, deep-dive flow, floating panel
-- `background.js` - Firebase + OpenRouter AI service worker (config loaded from Firestore)
+- `background.js` - shared answer store + OpenRouter/Gemini AI service worker
 - `popup.html` / `popup.js` - optional settings and paste-JSON fallback
 - `icons/` - extension icons

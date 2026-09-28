@@ -30,7 +30,7 @@ jobs:
             popup.js \
             questions-template.json \
             README.md \
-            setup.txt \
+            setup.md \
             icons/
 
       - name: Prepare publish folder
