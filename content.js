@@ -12,6 +12,7 @@
 
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+  const safeStorage = () => (typeof chrome !== "undefined" && chrome && chrome.storage && chrome.storage.local) ? chrome.storage.local : null;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const waitFor = (fn, timeout = 3000, interval = 40) =>
      new Promise((resolve) => {
@@ -215,7 +216,7 @@ const postMeta = (meta) => {
         console.log("[MayaAF] Updated ASSESS_ID from meta:", ASSESS_ID);
       }
       if (capturedMeta && capturedMeta.id) {
-        chrome.storage.local.set({ currentAssessmentId: capturedMeta.id });
+        const st = safeStorage(); if (st) st.set({ currentAssessmentId: capturedMeta.id });
         console.log("[MayaAF] Stored currentAssessmentId:", capturedMeta.id);
       }
     }
@@ -226,7 +227,7 @@ const postMeta = (meta) => {
     if (loadPromise) return loadPromise;
     loadPromise = (async () => {
       if (dataSource === "captured") return;
-      const s = await chrome.storage.local.get(["questionsJson", "usePastedJson"]);
+      const st = safeStorage(); const s = st ? await st.get(["questionsJson", "usePastedJson"]) : { questionsJson: "", usePastedJson: false };
       if (s.usePastedJson && s.questionsJson) {
         let parsed = null;
         try {
@@ -1503,7 +1504,7 @@ async function trySelectRadio(radio, idx) {
       mini.style.display = "none";
     });
 
-    chrome.storage.local.get("panelPos", (s) => {
+    const store = safeStorage(); if (store) store.get("panelPos", (s) => {
       if (s.panelPos && typeof s.panelPos.x === "number") {
         panel.style.left = s.panelPos.x + "px";
         panel.style.top = s.panelPos.y + "px";
@@ -1531,7 +1532,7 @@ async function trySelectRadio(radio, idx) {
         document.removeEventListener("mousemove", move);
         document.removeEventListener("mouseup", up);
         const r = panel.getBoundingClientRect();
-        chrome.storage.local.set({ panelPos: { x: r.left, y: r.top } });
+        const s = safeStorage(); if (s) s.set({ panelPos: { x: r.left, y: r.top } });
       };
       document.addEventListener("mousemove", move);
       document.addEventListener("mouseup", up);
@@ -1573,11 +1574,11 @@ async function trySelectRadio(radio, idx) {
     });
     $("#maya-af-autorun", panel).addEventListener("change", (e) => {
       autoRun = e.target.checked;
-      chrome.storage.local.set({ autoRun: autoRun });
+      const st = safeStorage(); if (st) st.set({ autoRun: autoRun });
     });
     $("#maya-af-advance", panel).addEventListener("change", (e) => {
       autoAdvance = e.target.checked;
-      chrome.storage.local.set({ autoAdvance: autoAdvance });
+      const st = safeStorage(); if (st) st.set({ autoAdvance: autoAdvance });
     });
     const arEl = $("#maya-af-autorun", panel);
     const adEl = $("#maya-af-advance", panel);
@@ -1595,7 +1596,7 @@ async function trySelectRadio(radio, idx) {
     useFirebase = true;
     useAI = true;
     if (settings.useFirebase === false || settings.useAI === false) {
-      try { chrome.storage.local.set({ useFirebase: true, useAI: true }); } catch (e) {}
+      try { const st = safeStorage(); if (st) st.set({ useFirebase: true, useAI: true }); } catch (e) {}
     }
     console.log("[MayaAF] applySettings:", { autoRun, autoAdvance, useFirebase, useAI });
     const ar = $("#maya-af-autorun");
@@ -1607,11 +1608,11 @@ async function trySelectRadio(radio, idx) {
     }
   }
 
-  chrome.storage.local.get(
+  const store = safeStorage(); if (store) store.get(
     { autoRun: true, autoAdvance: true, useFirebase: true, useAI: true, questionsJson: "", usePastedJson: false },
     (s) => applySettings(s)
   );
-  chrome.storage.onChanged.addListener((changes, area) => {
+  if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.onChanged) chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     const s = {};
     for (const k in changes) s[k] = changes[k].newValue;
