@@ -279,8 +279,6 @@ $("connectGemini").addEventListener("click", async () => {
   }
 });
 
-});
-
 // Connect: run a real OpenRouter command with the values in the fields.
 // Saved only when it succeeds — a failure leaves the current setup untouched.
 $("connectOpenRouter").addEventListener("click", async () => {
