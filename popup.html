@@ -391,6 +391,25 @@
     #geminiConnectStatus.ok, #openrouterConnectStatus.ok { color: #fff; }
     #geminiConnectStatus.err, #openrouterConnectStatus.err { color: #8a8a8a; }
 
+    /* ---- key field with eye + copy ---- */
+    .key-row { position: relative; display: flex; align-items: center; }
+    .key-row input { padding-right: 68px; }
+    .key-row .icon-btn {
+      position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+      width: 26px; height: 26px; padding: 0; background: transparent; border: none;
+      color: var(--muted); border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .key-row .icon-btn:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+    .key-row .icon-btn svg { width: 14px; height: 14px; display: block; }
+    .key-row .icon-btn[aria-label="Copy API key"] { right: 4px; }
+    .key-row .icon-btn[aria-label="Show API key"],
+    .key-row .icon-btn[aria-label="Hide API key"] { right: 32px; }
+    .eye-closed, .copy-done { display: none; }
+    .key-row .icon-btn.is-visible .eye-open { display: none; }
+    .key-row .icon-btn.is-visible .eye-closed { display: block; }
+    .key-row .icon-btn.is-copied .copy-idle { display: none; }
+    .key-row .icon-btn.is-copied .copy-done { display: block; }
+
     /* ---- stats ---- */
     .stat {
       display: flex;
@@ -480,7 +499,15 @@
         <div id="geminiFields" class="group" style="display:none;">
           <div class="group-title">Google Gemini</div>
           <label class="field-label" for="geminiApiKey">API key</label>
-          <input id="geminiApiKey" type="password" placeholder="AIza...">
+          <div class="key-row">
+            <input id="geminiApiKey" type="password" placeholder="AIza...">
+            <button id="geminiKeyEye" class="icon-btn" type="button" aria-label="Show API key" title="Show / hide">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><g class="eye-open"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></g><g class="eye-closed"><path d="M17.94 17.94A10.1 10.1 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></g></svg>
+            </button>
+            <button id="geminiKeyCopy" class="icon-btn" type="button" aria-label="Copy API key" title="Copy key">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><g class="copy-idle"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></g><g class="copy-done"><path d="M20 6L9 17l-5-5"/></g></svg>
+            </button>
+          </div>
           <label class="field-label" for="geminiModel" style="margin-top:11px;">Model</label>
           <div class="combo">
             <input id="geminiModel" class="combo-input" placeholder="gemini-flash-latest" spellcheck="false" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="modelList">
@@ -499,7 +526,15 @@
         <div id="openrouterFields" class="group" style="display:none;">
           <div class="group-title">OpenRouter</div>
           <label class="field-label" for="openrouterApiKey">API key</label>
-          <input id="openrouterApiKey" type="password" placeholder="sk-or-...">
+          <div class="key-row">
+            <input id="openrouterApiKey" type="password" placeholder="sk-or-...">
+            <button id="openrouterKeyEye" class="icon-btn" type="button" aria-label="Show API key" title="Show / hide">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><g class="eye-open"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></g><g class="eye-closed"><path d="M17.94 17.94A10.1 10.1 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></g></svg>
+            </button>
+            <button id="openrouterKeyCopy" class="icon-btn" type="button" aria-label="Copy API key" title="Copy key">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><g class="copy-idle"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></g><g class="copy-done"><path d="M20 6L9 17l-5-5"/></g></svg>
+            </button>
+          </div>
           <label class="field-label" for="openrouterModel" style="margin-top:11px;">Model</label>
           <div class="combo">
             <input id="openrouterModel" class="combo-input" placeholder="openrouter/auto" spellcheck="false" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="openrouterModelList">

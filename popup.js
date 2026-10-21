@@ -511,4 +511,43 @@ $("testAI").addEventListener("click", async () => {
   }
 });
 
+  $("geminiKeyEye").addEventListener("click", () => {
+    const input = $("geminiApiKey");
+    if (!input) return;
+    const showing = input.type === "text";
+    input.type = showing ? "password" : "text";
+    $("geminiKeyEye").classList.toggle("is-visible", !showing);
+    $("geminiKeyEye").setAttribute("aria-label", showing ? "Show API key" : "Hide API key");
+  });
+  $("geminiKeyCopy").addEventListener("click", () => {
+    const input = $("geminiApiKey");
+    if (!input || !input.value) return;
+    const btn = $("geminiKeyCopy");
+    navigator.clipboard.writeText(input.value).catch(() => {
+      const ta = document.createElement("textarea"); ta.value = input.value; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+    }).finally(() => {
+      btn.classList.add("is-copied"); btn.setAttribute("aria-label", "Copied!");
+      setTimeout(() => { btn.classList.remove("is-copied"); btn.setAttribute("aria-label", "Copy API key"); }, 1200);
+    });
+  });
+  $("openrouterKeyEye").addEventListener("click", () => {
+    const input = $("openrouterApiKey");
+    if (!input) return;
+    const showing = input.type === "text";
+    input.type = showing ? "password" : "text";
+    $("openrouterKeyEye").classList.toggle("is-visible", !showing);
+    $("openrouterKeyEye").setAttribute("aria-label", showing ? "Show API key" : "Hide API key");
+  });
+  $("openrouterKeyCopy").addEventListener("click", () => {
+    const input = $("openrouterApiKey");
+    if (!input || !input.value) return;
+    const btn = $("openrouterKeyCopy");
+    navigator.clipboard.writeText(input.value).catch(() => {
+      const ta = document.createElement("textarea"); ta.value = input.value; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+    }).finally(() => {
+      btn.classList.add("is-copied"); btn.setAttribute("aria-label", "Copied!");
+      setTimeout(() => { btn.classList.remove("is-copied"); btn.setAttribute("aria-label", "Copy API key"); }, 1200);
+    });
+  });
+
 load();
