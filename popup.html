@@ -5,135 +5,529 @@
   <title>Maya AutoPilot</title>
   <style>
     :root {
-      --bg: #111827;
-      --surface: #1f2937;
-      --border: #374151;
-      --text: #e5e7eb;
-      --muted: #9ca3af;
-      --green: #008730;
-      --blue: #2563eb;
-      --indigo: #4338ca;
-      --teal: #0f766e;
-      --slate: #4b5563;
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --surface-2: #161616;
+      --line: #232323;
+      --line-strong: #333333;
+      --text: #fafafa;
+      --muted: #8a8a8a;
+      --dim: #5c5c5c;
     }
-    body { width: 320px; font-family: Segoe UI, Arial, sans-serif; font-size: 13px; margin: 0; background: var(--bg); color: var(--text); }
-    .wrap { padding: 12px; }
-    h3 { margin: 0 0 6px; font-size: 14px; color: #fff; }
-    #msg { margin: 0 0 10px; font-size: 12px; color: var(--muted); word-break: break-word; line-height: 1.4; }
-    .opt { display: flex; align-items: center; gap: 6px; margin: 6px 0; cursor: pointer; }
-    .opt input { margin: 0; }
-    details { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
-    summary { cursor: pointer; font-size: 12px; color: #d1d5db; font-weight: 600; outline: none; }
-    details[open] summary { margin-bottom: 8px; }
-    .group { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
-    .group label { display: flex; align-items: flex-start; gap: 6px; margin: 3px 0; cursor: pointer; font-size: 12px; }
-    textarea { width: 100%; box-sizing: border-box; height: 90px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-size: 12px; resize: vertical; }
-    input[type=text], input[type=password] { width: 100%; box-sizing: border-box; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px; font-size: 12px; }
-    input::placeholder { color: #6b7280; }
-    .btnrow { display: flex; gap: 8px; margin-top: 8px; }
-    /* Every button gets a background here - a bare <button> renders light with
-       white text and is invisible. */
-    button { flex: 1; border: none; border-radius: 8px; padding: 7px; font-size: 12px; font-weight: 600; cursor: pointer; color: #fff; background: var(--slate); }
-    button:hover:not(:disabled) { filter: brightness(1.15); }
-    button:focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; }
-    button.active { outline: 2px solid #60a5fa; outline-offset: -2px; }
-    button:disabled { opacity: 0.6; cursor: default; }
-    #saveJson, #useGemini { background: var(--green); }
-    #clearJson, #useOpenRouter { background: var(--slate); }
-    #connectGemini { background: var(--blue); }
-    #testStore { background: var(--teal); }
-    #testAI { background: var(--indigo); }
-    /* model picker - a native suggestion popup cannot be styled and renders
-       light, so the list is built here instead */
-    .combo { position: relative; margin-top: 2px; display: flex; }
-    .combo-input { flex: 1; min-width: 0; border-radius: 6px 0 0 6px; font-family: Consolas, "SF Mono", Menlo, monospace; font-size: 11.5px; }
-    .combo-btn { flex: 0 0 30px; padding: 0; display: flex; align-items: center; justify-content: center; background: var(--surface); border: 1px solid var(--border); border-left: none; border-radius: 0 6px 6px 0; color: var(--muted); }
-    .combo-btn:hover { filter: none; color: var(--text); }
-    .combo-btn:focus-visible { outline: 2px solid #60a5fa; outline-offset: -2px; }
-    .combo-btn svg { transition: transform 0.15s ease; }
+
+    * { box-sizing: border-box; }
+
+    body {
+      width: 340px;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .wrap { padding: 18px 16px 16px; }
+
+    /* ---- header ---- */
+    .head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .brand {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+    .ver {
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      color: var(--dim);
+      font-variant-numeric: tabular-nums;
+    }
+    #msg {
+      margin: 0 0 16px;
+      font-size: 11.5px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ---- update banner ---- */
+    .banner {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 11px;
+      margin: 0 0 14px;
+      background: var(--surface);
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      font-size: 11.5px;
+    }
+    .banner strong { font-weight: 600; }
+    .banner a {
+      margin-left: auto;
+      color: var(--text);
+      font-weight: 600;
+      text-decoration: none;
+      border-bottom: 1px solid var(--line-strong);
+      padding-bottom: 1px;
+    }
+    .banner a:hover { border-bottom-color: var(--text); }
+
+    /* ---- toggles ---- */
+    .toggles {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .opt {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      cursor: pointer;
+      font-size: 12.5px;
+      color: #d4d4d4;
+      user-select: none;
+    }
+    .opt input {
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      margin: 0;
+      flex: 0 0 auto;
+      border: 1px solid var(--line-strong);
+      border-radius: 4px;
+      background: transparent;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .opt input:hover { border-color: #4a4a4a; }
+    .opt input:checked { background: var(--text); border-color: var(--text); }
+    .opt input:checked::after {
+      content: "";
+      position: absolute;
+      left: 4px;
+      top: 1px;
+      width: 4px;
+      height: 8px;
+      border: solid var(--bg);
+      border-width: 0 1.6px 1.6px 0;
+      transform: rotate(45deg);
+    }
+    .opt input:focus-visible { outline: 1px solid var(--text); outline-offset: 2px; }
+
+    /* ---- sections ---- */
+    details { border-bottom: 1px solid var(--line); }
+    details:last-of-type { border-bottom: none; }
+    summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 14px 0;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+      transition: color 0.15s ease;
+    }
+    summary:hover { color: var(--text); }
+    summary::-webkit-details-marker { display: none; }
+    summary::before {
+      content: "";
+      width: 5px;
+      height: 5px;
+      border-right: 1.5px solid currentColor;
+      border-bottom: 1.5px solid currentColor;
+      transform: rotate(-45deg);
+      transition: transform 0.2s ease;
+      margin-right: 2px;
+    }
+    details[open] > summary::before { transform: rotate(45deg); }
+    .section-body { padding-bottom: 16px; }
+
+    /* ---- status rows ---- */
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 9px 11px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      margin-bottom: 7px;
+      font-size: 11.5px;
+      color: #c9c9c9;
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+      background: transparent;
+      border: 1px solid var(--dim);
+    }
+    .status-dot.connected {
+      background: #fff;
+      border-color: #fff;
+      box-shadow: 0 0 7px rgba(255, 255, 255, 0.5);
+    }
+    .status-dot.disconnected { background: transparent; border-color: #555; }
+    .status-dot.pending { border-color: #888; animation: pulse 1.4s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+    /* ---- grouped card ---- */
+    .group {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 13px 13px 12px;
+      margin-top: 10px;
+      background: var(--surface);
+    }
+    .group-title {
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 9px;
+    }
+    .field-label {
+      display: block;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .hint {
+      font-size: 10.5px;
+      color: var(--dim);
+      line-height: 1.5;
+      margin-top: 8px;
+    }
+    .hint a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+    .hint a:hover { color: var(--text); }
+
+    /* ---- segmented control ---- */
+    .segment {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      padding: 4px;
+      background: #0d0d0d;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+    .segment button {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 7px;
+      padding: 7px 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.18s ease, color 0.18s ease;
+    }
+    .segment button:hover { color: var(--text); background: #191919; }
+    .segment button.active {
+      background: #fff;
+      color: #0a0a0a;
+    }
+    .segment button:focus-visible { outline: 1px solid var(--text); outline-offset: 1px; }
+
+    /* ---- inputs ---- */
+    input[type=password], input[type=text], textarea {
+      width: 100%;
+      background: #0d0d0d;
+      color: var(--text);
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-family: inherit;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    input::placeholder, textarea::placeholder { color: #4a4a4a; }
+    input:hover, textarea:hover { border-color: #3d3d3d; }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: #fff;
+      background: #101010;
+    }
+    textarea { height: 84px; resize: vertical; font-family: Consolas, "SF Mono", Menlo, monospace; font-size: 11px; }
+
+    /* ---- model combo ---- */
+    .combo { position: relative; display: flex; }
+    .combo-input {
+      flex: 1;
+      min-width: 0;
+      border-radius: 8px 0 0 8px;
+      font-family: Consolas, "SF Mono", Menlo, monospace;
+      font-size: 11.5px;
+    }
+    .combo-btn {
+      flex: 0 0 32px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0d0d0d;
+      border: 1px solid var(--line-strong);
+      border-left: none;
+      border-radius: 0 8px 8px 0;
+      color: var(--muted);
+      cursor: pointer;
+      transition: color 0.15s ease, border-color 0.15s ease;
+    }
+    .combo-btn:hover { color: var(--text); border-color: #3d3d3d; }
+    .combo-btn:focus-visible { outline: 1px solid var(--text); outline-offset: -1px; }
+    .combo-btn svg { transition: transform 0.18s ease; }
     .combo-btn[aria-expanded="true"] { color: var(--text); }
     .combo-btn[aria-expanded="true"] svg { transform: rotate(180deg); }
-    .combo-list { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0; margin: 0; padding: 4px; list-style: none; background: #0b1220; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 14px 30px rgba(0,0,0,0.6); max-height: 176px; overflow-y: auto; }
-    .combo-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: 6px; font-size: 12px; color: var(--text); cursor: pointer; }
-    .combo-list li.sel, .combo-list li:hover { background: #1f2937; }
+    .combo-list {
+      position: absolute;
+      z-index: 30;
+      top: calc(100% + 5px);
+      left: 0;
+      right: 0;
+      margin: 0;
+      padding: 4px;
+      list-style: none;
+      background: #101010;
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.75);
+      max-height: 190px;
+      overflow-y: auto;
+    }
+    .combo-list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 7px 9px;
+      border-radius: 7px;
+      font-size: 12px;
+      color: #d0d0d0;
+      cursor: pointer;
+    }
+    .combo-list li.sel, .combo-list li:hover { background: #1e1e1e; color: #fff; }
     .combo-list li .mid { display: flex; flex-direction: column; min-width: 0; }
-    .combo-list li .id { font-family: Consolas, "SF Mono", Menlo, monospace; font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
-    .combo-list li .tick { color: #22c55e; font-weight: 700; flex: 0 0 auto; }
-    .combo-list li.custom .name { color: #93c5fd; }
-    .status-row { display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--surface); border-radius: 8px; margin: 8px 0; font-size: 11px; }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
-    .status-dot.connected { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
-    .status-dot.disconnected { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
-    .status-dot.pending { background: #f59e0b; animation: pulse 1.2s infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
-    .stat { font-size: 11px; color: var(--muted); margin: 4px 0; }
-    .stat strong { color: var(--text); }
+    .combo-list li .id {
+      font-family: Consolas, "SF Mono", Menlo, monospace;
+      font-size: 10.5px;
+      color: var(--dim);
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .combo-list li .tick { color: #fff; font-weight: 700; flex: 0 0 auto; }
+    .combo-list li.custom .name { color: #fff; }
+
+    /* ---- buttons ---- */
+    .btnrow { display: flex; gap: 8px; margin-top: 11px; }
+    button {
+      flex: 1;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 11.5px;
+      font-weight: 600;
+      font-family: inherit;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      color: var(--text);
+      background: transparent;
+      transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+    }
+    button:hover:not(:disabled) { background: #1b1b1b; border-color: #454545; }
+    button:focus-visible { outline: 1px solid var(--text); outline-offset: 1px; }
+    button:disabled { opacity: 0.45; cursor: default; }
+    button.primary {
+      background: #fff;
+      color: #0a0a0a;
+      border-color: #fff;
+    }
+    button.primary:hover:not(:disabled) { background: #e2e2e2; border-color: #e2e2e2; }
+
+    /* ---- connect status ---- */
+    #geminiConnectStatus, #openrouterConnectStatus {
+      font-size: 11px;
+      line-height: 1.5;
+      margin-top: 9px;
+      word-break: break-word;
+      color: var(--muted);
+    }
+    #geminiConnectStatus.ok, #openrouterConnectStatus.ok { color: #fff; }
+    #geminiConnectStatus.err, #openrouterConnectStatus.err { color: #8a8a8a; }
+
+    /* ---- stats ---- */
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 12px;
+    }
+    .stat strong { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .stat .sep { color: #3a3a3a; }
+
+    /* ---- radio list ---- */
+    .radio-list { display: flex; flex-direction: column; gap: 9px; }
+    .radio-list label {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      cursor: pointer;
+      font-size: 12.5px;
+      color: #d4d4d4;
+    }
+    .radio-list input {
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      margin: 0;
+      flex: 0 0 auto;
+      border: 1px solid var(--line-strong);
+      border-radius: 50%;
+      background: transparent;
+      cursor: pointer;
+      position: relative;
+      transition: border-color 0.15s ease;
+    }
+    .radio-list input:hover { border-color: #4a4a4a; }
+    .radio-list input:checked { border-color: #fff; }
+    .radio-list input:checked::after {
+      content: "";
+      position: absolute;
+      inset: 3px;
+      border-radius: 50%;
+      background: #fff;
+    }
+    .radio-list input:focus-visible { outline: 1px solid var(--text); outline-offset: 2px; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h3>Maya AutoPilot</h3>
+    <div class="head">
+      <span class="brand">Maya AutoPilot</span>
+      <span class="ver" id="verLabel">v1.3.10</span>
+    </div>
     <div id="msg">Automatic mode - answers are taken from the page automatically. No input needed.</div>
-    <div id="updateBanner" class="status-row" style="display:none;background:#1f2937;border:1px solid #374151;">
-      <span style="color:#f59e0b;">Update available: <strong id="updateVersion"></strong></span>
-      <a id="updateLink" href="#" target="_blank" style="color:#60a5fa;text-decoration:none;margin-left:auto;">Update</a>
+
+    <div id="updateBanner" class="banner">
+      <span>Update available: <strong id="updateVersion"></strong></span>
+      <a id="updateLink" href="#" target="_blank">Update</a>
     </div>
 
-    <label class="opt"><input type="checkbox" id="autoRun"> Auto-run when questions load</label>
-    <label class="opt"><input type="checkbox" id="autoAdvance"> Auto-advance to next question</label>
+    <div class="toggles">
+      <label class="opt"><input type="checkbox" id="autoRun"> Auto-run when questions load</label>
+      <label class="opt"><input type="checkbox" id="autoAdvance"> Auto-advance to next question</label>
+    </div>
 
     <details open>
       <summary>Answers &amp; AI</summary>
-      <div class="status-row">
-        <span id="storeDot" class="status-dot pending"></span>
-        <span id="storeStatus">Answer store: checking...</span>
-      </div>
-      <div class="status-row">
-        <span id="aiDot" class="status-dot pending"></span>
-        <span id="aiStatus">Checking AI provider...</span>
-      </div>
-      <div class="group" style="margin-top:6px;">
-        <label style="font-size:12px;color:#d1d5db;margin-bottom:4px;">AI provider</label>
-        <div class="btnrow" style="margin-top:0;">
-          <button id="useGemini">Use Gemini</button>
-          <button id="useOpenRouter">Use OpenRouter</button>
+      <div class="section-body">
+        <div class="status-row">
+          <span id="storeDot" class="status-dot pending"></span>
+          <span id="storeStatus">Answer store: checking...</span>
         </div>
-        <div style="font-size:10px;color:#6b7280;margin-top:4px;">Gemini is the default. OpenRouter is only used when you pick it here.</div>
-      </div>
-      <div id="geminiFields" class="group" style="margin-top:6px;display:none;">
-        <label style="font-size:11px;color:#9ca3af;">Gemini API key</label>
-        <input id="geminiApiKey" type="password" placeholder="AIza...">
-        <label for="geminiModel" style="font-size:11px;color:#9ca3af;margin-top:6px;">Model</label>
-        <div class="combo">
-          <input id="geminiModel" class="combo-input" placeholder="gemini-flash-latest" spellcheck="false" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="modelList">
-          <button id="modelToggle" class="combo-btn" type="button" tabindex="-1" aria-label="Show model list" aria-expanded="false">
-            <svg viewBox="0 0 12 8" width="11" height="7" aria-hidden="true"><path d="M1 1.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <ul id="modelList" class="combo-list" role="listbox" aria-label="Gemini models" hidden></ul>
+        <div class="status-row">
+          <span id="aiDot" class="status-dot pending"></span>
+          <span id="aiStatus">Checking AI provider...</span>
+        </div>
+
+        <div class="group">
+          <div class="group-title">AI Provider</div>
+          <div class="segment">
+            <button id="useGemini">Use Gemini</button>
+            <button id="useOpenRouter">Use OpenRouter</button>
+          </div>
+          <div class="hint">Gemini is the default. Bring your own API key - it stays on this device and is only sent to the provider you pick.</div>
+        </div>
+
+        <div id="geminiFields" class="group" style="display:none;">
+          <div class="group-title">Google Gemini</div>
+          <label class="field-label" for="geminiApiKey">API key</label>
+          <input id="geminiApiKey" type="password" placeholder="AIza...">
+          <label class="field-label" for="geminiModel" style="margin-top:11px;">Model</label>
+          <div class="combo">
+            <input id="geminiModel" class="combo-input" placeholder="gemini-flash-latest" spellcheck="false" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="modelList">
+            <button id="modelToggle" class="combo-btn" type="button" tabindex="-1" aria-label="Show model list" aria-expanded="false">
+              <svg viewBox="0 0 12 8" width="11" height="7" aria-hidden="true"><path d="M1 1.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <ul id="modelList" class="combo-list" role="listbox" aria-label="Gemini models" hidden></ul>
+          </div>
+          <div class="btnrow">
+            <button id="connectGemini" class="primary">Connect</button>
+          </div>
+          <div id="geminiConnectStatus">Press Connect to test the key. Nothing is saved unless the test passes.</div>
+          <div class="hint">Get a key at aistudio.google.com/app/apikey. Type any model ID, or pick one below - retired models are skipped automatically.</div>
+        </div>
+
+        <div id="openrouterFields" class="group" style="display:none;">
+          <div class="group-title">OpenRouter</div>
+          <label class="field-label" for="openrouterApiKey">API key</label>
+          <input id="openrouterApiKey" type="password" placeholder="sk-or-...">
+          <label class="field-label" for="openrouterModel" style="margin-top:11px;">Model</label>
+          <div class="combo">
+            <input id="openrouterModel" class="combo-input" placeholder="openrouter/auto" spellcheck="false" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="openrouterModelList">
+            <button id="openrouterModelToggle" class="combo-btn" type="button" tabindex="-1" aria-label="Show model list" aria-expanded="false">
+              <svg viewBox="0 0 12 8" width="11" height="7" aria-hidden="true"><path d="M1 1.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <ul id="openrouterModelList" class="combo-list" role="listbox" aria-label="OpenRouter models" hidden></ul>
+          </div>
+          <div class="btnrow">
+            <button id="connectOpenRouter" class="primary">Connect</button>
+          </div>
+          <div id="openrouterConnectStatus">Press Connect to test the key. Nothing is saved unless the test passes.</div>
+          <div class="hint">Get a key at openrouter.ai/keys. Type any model ID - the ":free" models need no credits.</div>
+        </div>
+
+        <div class="stat">
+          <span>Cached answers <strong id="cachedCount">-</strong></span>
+          <span class="sep">/</span>
+          <span>Shared questions <strong id="sharedCount">-</strong></span>
         </div>
         <div class="btnrow">
-          <button id="connectGemini">Connect</button>
+          <button id="testStore">Test Cache</button>
+          <button id="testAI">Test AI</button>
         </div>
-        <div id="connectStatus" style="font-size:11px;color:#9ca3af;margin-top:6px;line-height:1.4;word-break:break-word;">Press Connect to test the key. Nothing is saved unless the test passes.</div>
-        <div style="font-size:10px;color:#6b7280;margin-top:4px;">Type any Gemini model ID, or pick one below. If a model is retired, the next one is tried automatically.</div>
-      </div>
-      <div class="stat">Cached answers: <strong id="cachedCount">-</strong> &nbsp;·&nbsp; Shared questions: <strong id="sharedCount">-</strong></div>
-      <div class="btnrow">
-        <button id="testStore">Test Cache</button>
-        <button id="testAI">Test AI</button>
       </div>
     </details>
 
     <details>
-      <summary>Advanced (optional)</summary>
-      <div class="group">
-        <label><input type="radio" name="src" value="api"> Automatic - page network only (no API)</label>
-        <label><input type="radio" name="src" value="pasted"> Use pasted JSON below</label>
-      </div>
-      <textarea id="jsonInput" placeholder="Paste JSON here only if you want to use it manually"></textarea>
-      <div class="btnrow">
-        <button id="saveJson">Save</button>
-        <button id="clearJson">Clear</button>
+      <summary>Advanced</summary>
+      <div class="section-body">
+        <div class="group">
+          <div class="group-title">Answer source</div>
+          <div class="radio-list">
+            <label><input type="radio" name="src" value="api"> Automatic - page network only</label>
+            <label><input type="radio" name="src" value="pasted"> Use pasted JSON below</label>
+          </div>
+        </div>
+        <textarea id="jsonInput" placeholder="Paste JSON here only if you want to use it manually"></textarea>
+        <div class="btnrow">
+          <button id="saveJson">Save</button>
+          <button id="clearJson">Clear</button>
+        </div>
       </div>
     </details>
   </div>

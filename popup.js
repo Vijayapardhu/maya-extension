@@ -1,9 +1,10 @@
 const $ = (id) => document.getElementById(id);
 
-const defaults = { autoRun: true, autoAdvance: true, usePastedJson: false, questionsJson: "", aiProvider: "gemini", geminiApiKey: "", geminiModel: "gemini-flash-latest" };
+const defaults = { autoRun: true, autoAdvance: true, usePastedJson: false, questionsJson: "", aiProvider: "gemini", geminiApiKey: "", geminiModel: "gemini-flash-latest", openrouterApiKey: "", openrouterModel: "openrouter/auto" };
 
 let currentProvider = "gemini";
 let geminiConnected = false;
+let openrouterConnected = false;
 
 /* Live model IDs. The field stays free-typed - any ID works, and the background
    falls back to the next model if one has been retired. */
@@ -126,6 +127,8 @@ function hasValidJson(raw) {
 function renderProviderUI() {
   const geminiFields = $("geminiFields");
   if (geminiFields) geminiFields.style.display = currentProvider === "gemini" ? "block" : "none";
+  const orFields = $("openrouterFields");
+  if (orFields) orFields.style.display = currentProvider === "openrouter" ? "block" : "none";
   const gemBtn = $("useGemini");
   const orBtn = $("useOpenRouter");
   if (gemBtn) gemBtn.classList.toggle("active", currentProvider === "gemini");
@@ -133,20 +136,23 @@ function renderProviderUI() {
 
   const dot = $("aiDot");
   const status = $("aiStatus");
-  const connected = currentProvider === "gemini" ? geminiConnected : true;
+  const connected = currentProvider === "gemini" ? geminiConnected : openrouterConnected;
   if (dot) dot.className = "status-dot " + (connected ? "connected" : "disconnected");
   if (status) {
     status.textContent = currentProvider === "gemini"
       ? (geminiConnected ? "Gemini: connected" : "Gemini: not connected - press Connect")
-      : "OpenRouter: shared free models";
+      : (openrouterConnected ? "OpenRouter: connected" : "OpenRouter: not connected - press Connect");
   }
 }
 
 function setConnectStatus(text, tone) {
-  const el = $("connectStatus");
+  const targetId = currentProvider === "gemini" ? "geminiConnectStatus" : "openrouterConnectStatus";
+  const el = $(targetId);
   if (!el) return;
   el.textContent = text;
-  el.style.color = tone === "ok" ? "#22c55e" : tone === "err" ? "#ef4444" : "#9ca3af";
+  if (tone === "ok") { el.className = "ok"; el.style.color = "#fff"; }
+  else if (tone === "err") { el.className = "err"; el.style.color = "#aaa"; }
+  else { el.className = ""; el.style.color = "#8a8a8a"; }
 }
 
 async function setProvider(provider) {
@@ -155,6 +161,8 @@ async function setProvider(provider) {
   renderProviderUI();
   if (provider === "gemini" && !geminiConnected) {
     setConnectStatus("Add your API key and press Connect.", "err");
+  } else if (provider === "openrouter" && !openrouterConnected) {
+    setConnectStatus("Add your OpenRouter API key and press Connect.", "err");
   } else {
     setConnectStatus("");
   }
@@ -184,15 +192,25 @@ async function load() {
   const prov = s.aiProvider === "openrouter" ? "openrouter" : "gemini";
   currentProvider = prov;
   geminiConnected = !!(s.geminiApiKey && s.geminiApiKey.trim());
+  openrouterConnected = !!(s.openrouterApiKey && s.openrouterApiKey.trim());
   renderProviderUI();
   const keyEl = $("geminiApiKey");
   if (keyEl) keyEl.value = s.geminiApiKey || "";
   const modelEl = $("geminiModel");
   if (modelEl) modelEl.value = s.geminiModel || "gemini-flash-latest";
+  const orKeyEl = $("openrouterApiKey");
+  if (orKeyEl) orKeyEl.value = s.openrouterApiKey || "";
+  const orModelEl = $("openrouterModel");
+  if (orModelEl) orModelEl.value = s.openrouterModel || "openrouter/auto";
   if (prov === "gemini") {
     setConnectStatus(
       geminiConnected ? "Connected. Key is saved and being used." : "Not connected yet. Paste your API key and press Connect.",
       geminiConnected ? "ok" : "err"
+    );
+  } else {
+    setConnectStatus(
+      openrouterConnected ? "Connected. Key is saved and being used." : "Not connected yet. Paste your API key and press Connect.",
+      openrouterConnected ? "ok" : "err"
     );
   }
 
@@ -261,12 +279,53 @@ $("connectGemini").addEventListener("click", async () => {
   }
 });
 
+});
+
+// Connect: run a real OpenRouter command with the values in the fields.
+// Saved only when it succeeds — a failure leaves the current setup untouched.
+$("connectOpenRouter").addEventListener("click", async () => {
+  const btn = $("connectOpenRouter");
+  const key = ($("openrouterApiKey").value || "").trim();
+  const model = ($("openrouterModel").value || "").trim() || "openrouter/auto";
+  if (!key) {
+    setConnectStatus("Paste your OpenRouter API key first.", "err");
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = "Connecting...";
+  setConnectStatus("Testing your key with a real request...");
+  const resp = await bgMsg("AI_TEST", { provider: "openrouter", apiKey: key, model });
+  btn.disabled = false;
+  btn.textContent = "Connect";
+  if (resp && resp.ok) {
+    const savedModel = resp.model || model;
+    $("openrouterModel").value = savedModel;
+    await chrome.storage.local.set({ openrouterApiKey: key, openrouterModel: savedModel, aiProvider: "openrouter" });
+    currentProvider = "openrouter";
+    openrouterConnected = true;
+    renderProviderUI();
+    setConnectStatus("Connected - " + savedModel + " is answering questions.", "ok");
+  } else {
+    openrouterConnected = false;
+    renderProviderUI();
+    setConnectStatus("Not connected: " + String((resp && resp.error) || "no response from background"), "err");
+  }
+});
+
 // Edits are never written straight to storage - Connect validates first.
 ["geminiApiKey", "geminiModel"].forEach((id) => {
   const el = $(id);
   if (!el) return;
   el.addEventListener("input", () => {
     if (currentProvider !== "gemini") return;
+    setConnectStatus("Changed but not saved yet - press Connect to test and save.", "err");
+  });
+});
+["openrouterApiKey", "openrouterModel"].forEach((id) => {
+  const el = $(id);
+  if (!el) return;
+  el.addEventListener("input", () => {
+    if (currentProvider !== "openrouter") return;
     setConnectStatus("Changed but not saved yet - press Connect to test and save.", "err");
   });
 });

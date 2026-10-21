@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vijayapardhu — Developer Portfolio</title>
+  <meta name="description" content="Vijayapardhu (also written Vijaya Pardhu) is a developer building browser extensions and web tools with vanilla JavaScript. Explore open-source work and get in touch.">
+  <meta name="author" content="Vijayapardhu">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://vijayapardhu.dev/">
+
+  <meta name="theme-color" content="#f6f3ec">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Vijayapardhu">
+  <meta property="og:title" content="Vijayapardhu — Developer Portfolio">
+  <meta property="og:description" content="Browser extensions and web tools built with vanilla JavaScript. Small, fast, and made to stay out of your way.">
+  <meta property="og:url" content="https://vijayapardhu.dev/">
+  <meta property="og:image" content="https://vijayapardhu.dev/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Vijayapardhu — Developer Portfolio">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Vijayapardhu — Developer Portfolio">
+  <meta name="twitter:description" content="Browser extensions and web tools built with vanilla JavaScript. Small, fast, and made to stay out of your way.">
+  <meta name="twitter:image" content="https://vijayapardhu.dev/og.png">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Person",
+        "@id": "https://vijayapardhu.dev/#person",
+        "name": "Vijayapardhu",
+        "alternateName": ["Vijaya Pardhu", "Vijayaapardhu"],
+        "url": "https://vijayapardhu.dev/",
+        "jobTitle": "Developer",
+        "description": "Developer building browser extensions and web tools with vanilla JavaScript.",
+        "sameAs": ["https://github.com/Vijayapardhu"],
+        "knowsAbout": ["Browser extensions", "Web development", "JavaScript", "HTML", "CSS"]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://vijayapardhu.dev/#website",
+        "url": "https://vijayapardhu.dev/",
+        "name": "Vijayapardhu",
+        "description": "The developer portfolio of Vijayapardhu.",
+        "publisher": { "@id": "https://vijayapardhu.dev/#person" },
+        "inLanguage": "en"
+      },
+      {
+        "@type": "ProfilePage",
+        "@id": "https://vijayapardhu.dev/#page",
+        "url": "https://vijayapardhu.dev/",
+        "name": "Vijayapardhu — Developer Portfolio",
+        "isPartOf": { "@id": "https://vijayapardhu.dev/#website" },
+        "about": { "@id": "https://vijayapardhu.dev/#person" },
+        "mainEntity": { "@id": "https://vijayapardhu.dev/#person" },
+        "dateModified": "2026-10-21"
+      }
+    ]
+  }
+  </script>
+
+  <style>
+    :root {
+      --paper: #f6f3ec;
+      --card: #fffdf8;
+      --ink: #141414;
+      --muted: #625c52;
+      --line: rgba(20, 20, 20, 0.12);
+      --accent: #b6461f;
+      --accent-soft: #f0d9cf;
+      --radius: 18px;
+      --wrap: 1120px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 96px;
+    }
+
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: -1;
+      background:
+        radial-gradient(circle at 12% 8%, rgba(182, 70, 31, 0.08), transparent 34rem),
+        radial-gradient(circle at 88% 22%, rgba(20, 20, 20, 0.05), transparent 30rem);
+    }
+
+    a {
+      color: inherit;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 4px;
+    }
+
+    a:hover { color: var(--accent); }
+
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 4px;
+      border-radius: 4px;
+    }
+
+    .skip-link {
+      position: absolute;
+      top: -100px;
+      left: 24px;
+      z-index: 100;
+      padding: 12px 18px;
+      background: var(--ink);
+      color: var(--paper);
+      border-radius: 8px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .skip-link:focus { top: 16px; color: var(--paper); }
+
+    .wrap {
+      width: min(100% - 48px, var(--wrap));
+      margin-inline: auto;
+    }
+
+    /* Header */
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(246, 243, 236, 0.86);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      min-height: 72px;
+    }
+
+    .brand {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      text-decoration: none;
+    }
+
+    .brand .accent { color: var(--accent); }
+
+    .site-nav {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      font-size: 0.92rem;
+      font-weight: 500;
+    }
+
+    .site-nav a {
+      text-decoration: none;
+      color: var(--muted);
+      transition: color 160ms ease;
+    }
+
+    .site-nav a:hover { color: var(--ink); }
+
+    /* Hero */
+    .hero {
+      padding: clamp(64px, 10vw, 132px) 0 clamp(56px, 8vw, 104px);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+      gap: clamp(40px, 6vw, 80px);
+      align-items: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 24px;
+      height: 2px;
+      background: currentColor;
+    }
+
+    h1 {
+      font-size: clamp(3.4rem, 9vw, 7rem);
+      font-weight: 800;
+      letter-spacing: -0.055em;
+      line-height: 0.95;
+      margin-bottom: 28px;
+    }
+
+    h1 .accent { color: var(--accent); }
+
+    .lede {
+      max-width: 34rem;
+      color: var(--muted);
+      font-size: clamp(1.1rem, 1.8vw, 1.3rem);
+      line-height: 1.55;
+      margin-bottom: 34px;
+    }
+
+    .hero-links {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 24px;
+      background: var(--ink);
+      color: var(--paper);
+      border-radius: 999px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: transform 160ms ease, background 160ms ease;
+    }
+
+    .button:hover {
+      background: var(--accent);
+      color: var(--paper);
+      transform: translateY(-2px);
+    }
+
+    .text-link {
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-decoration: none;
+      border-bottom: 2px solid var(--accent);
+      padding-bottom: 2px;
+    }
+
+    /* Terminal card */
+    .terminal {
+      background: #171717;
+      border-radius: var(--radius);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 24px 60px rgba(20, 20, 20, 0.18);
+      overflow: hidden;
+      transform: rotate(1.5deg);
+    }
+
+    .terminal-bar {
+      display: flex;
+      gap: 7px;
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .terminal-bar span {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #4b4b4b;
+    }
+
+    .terminal-bar span:first-child { background: #b6461f; }
+    .terminal-bar span:nth-child(2) { background: #c9a227; }
+    .terminal-bar span:nth-child(3) { background: #4f8a5b; }
+
+    .terminal-body {
+      padding: 24px 24px 30px;
+      color: #d9d4c9;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.88rem;
+      line-height: 1.9;
+    }
+
+    .terminal-body p { margin: 0; }
+    .prompt { color: #e07a52; }
+    .out { color: #f6f3ec; }
+    .out + .prompt-line { margin-top: 14px; }
+
+    .cursor {
+      display: inline-block;
+      width: 8px;
+      height: 15px;
+      margin-left: 2px;
+      vertical-align: -2px;
+      background: #f6f3ec;
+      animation: blink 1.1s steps(1) infinite;
+    }
+
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* Sections */
+    .section {
+      padding: clamp(56px, 8vw, 96px) 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .section-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+      gap: clamp(32px, 6vw, 80px);
+      align-items: start;
+    }
+
+    h2 {
+      font-size: clamp(1.8rem, 3.4vw, 2.6rem);
+      font-weight: 750;
+      letter-spacing: -0.04em;
+      line-height: 1.1;
+    }
+
+    .section-heading { margin-bottom: 36px; }
+
+    .prose p {
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.75;
+    }
+
+    .prose p + p { margin-top: 18px; }
+
+    .prose strong { color: var(--ink); font-weight: 650; }
+
+    /* Work cards */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 26px 24px 28px;
+      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+    }
+
+    .card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(182, 70, 31, 0.35);
+      box-shadow: 0 16px 36px rgba(20, 20, 20, 0.07);
+    }
+
+    .card h3 {
+      font-size: 1.12rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+    }
+
+    .card p {
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.65;
+    }
+
+    .note {
+      margin-top: 26px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .note a { font-weight: 600; }
+
+    /* Contact */
+    .contact {
+      text-align: center;
+      padding-block: clamp(20px, 4vw, 40px);
+    }
+
+    .contact .eyebrow { justify-content: center; }
+
+    .contact p {
+      max-width: 34rem;
+      margin: 18px auto 30px;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+
+    /* Footer */
+    .site-footer {
+      border-top: 1px solid var(--line);
+      padding: 32px 0 40px;
+    }
+
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    @media (max-width: 860px) {
+      .hero-grid,
+      .section-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .terminal {
+        transform: none;
+        max-width: 460px;
+      }
+
+      .cards { grid-template-columns: 1fr; }
+
+      .site-nav { gap: 18px; }
+    }
+
+    @media (max-width: 520px) {
+      .wrap { width: min(100% - 32px, var(--wrap)); }
+      .header-inner { min-height: 64px; }
+      .site-nav { font-size: 0.85rem; gap: 14px; }
+      .hero-links { align-items: flex-start; flex-direction: column; gap: 14px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+      .cursor { animation: none; opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="#top" aria-label="Vijayapardhu — home">Vijayapardhu<span class="accent">.</span></a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="#about">About</a>
+        <a href="#work">Work</a>
+        <a href="#contact">Contact</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top" aria-labelledby="hero-title">
+      <div class="wrap hero-grid">
+        <div>
+          <p class="eyebrow">Developer · Builder</p>
+          <h1 id="hero-title">Vijayapardhu<span class="accent">.</span></h1>
+          <p class="lede">I build browser extensions and web tools with plain JavaScript — small, fast, and made to stay out of your way.</p>
+          <div class="hero-links">
+            <a class="button" href="https://github.com/Vijayapardhu" target="_blank" rel="me noopener">GitHub ↗</a>
+            <a class="text-link" href="#contact">Get in touch →</a>
+          </div>
+        </div>
+
+        <div class="terminal" aria-label="Quick profile">
+          <div class="terminal-bar" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="terminal-body">
+            <p><span class="prompt">$</span> whoami</p>
+            <p class="out">Vijayapardhu</p>
+            <p style="margin-top: 14px;"><span class="prompt">$</span> focus</p>
+            <p class="out">browser extensions · web tools</p>
+            <p style="margin-top: 14px;"><span class="prompt">$</span> stack</p>
+            <p class="out">vanilla js · html · css</p>
+            <p style="margin-top: 14px;"><span class="prompt">$</span> <span class="cursor" aria-hidden="true"></span></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="about" aria-labelledby="about-title">
+      <div class="wrap section-grid">
+        <div>
+          <p class="eyebrow">About</p>
+          <h2 id="about-title">Small tools, carefully built.</h2>
+        </div>
+        <div class="prose">
+          <p>I'm <strong>Vijayapardhu</strong> — also written as <strong>Vijaya Pardhu</strong>. I'm a developer who likes software that does one job well and then gets out of the way.</p>
+          <p>Most of my work lives in the browser: extensions, interfaces, and utilities that remove repetitive steps. I prefer vanilla JavaScript, minimal dependencies, and code that is easy to inspect, change, and learn from.</p>
+          <p>When I'm not building, I'm usually reading about browser internals, accessibility, and interface design.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="work" aria-labelledby="work-title">
+      <div class="wrap">
+        <div class="section-heading">
+          <p class="eyebrow">Work</p>
+          <h2 id="work-title">What I work on</h2>
+        </div>
+
+        <div class="cards">
+          <article class="card">
+            <h3>Browser extensions</h3>
+            <p>Focused tools that automate repetitive browser workflows and stay lightweight.</p>
+          </article>
+          <article class="card">
+            <h3>Web interfaces</h3>
+            <p>Clean, responsive pages built with semantic HTML and CSS — no heavy frameworks.</p>
+          </article>
+          <article class="card">
+            <h3>Open-source utilities</h3>
+            <p>Small scripts and experiments shared on GitHub for others to use and improve.</p>
+          </article>
+        </div>
+
+        <p class="note">Project write-ups are coming soon. In the meantime, browse my <a href="https://github.com/Vijayapardhu" target="_blank" rel="me noopener">GitHub</a>.</p>
+      </div>
+    </section>
+
+    <section class="section" id="contact" aria-labelledby="contact-title">
+      <div class="wrap contact">
+        <p class="eyebrow">Contact</p>
+        <h2 id="contact-title">Let's build something useful.</h2>
+        <p>Open to collaborations, feedback, and interesting browser problems.</p>
+        <a class="button" href="https://github.com/Vijayapardhu" target="_blank" rel="me noopener">Find me on GitHub ↗</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <p>© 2026 Vijayapardhu</p>
+      <p>Built with vanilla HTML and CSS.</p>
+    </div>
+  </footer>
+</body>
+</html>

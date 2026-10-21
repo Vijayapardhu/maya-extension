@@ -67,9 +67,16 @@
 - [x] icons/ (16, 48, 128)
 
 ## Security
-- [x] OpenRouter API key moved to Firebase Firestore
-- [x] Model selection loaded from Firebase
+- [x] Gemini BYOK key stored in chrome.storage.local (never in repo)
+- [x] OpenRouter BYOK key stored in chrome.storage.local (never in repo)
+- [x] Shared Firebase config (optional) remains for OpenRouter shared models
 - [x] No hardcoded secrets in repo
+
+- [x] AI Configuration / BYOK section (Gemini + OpenRouter)
+- [x] AI provider cards with badges, steps, and notes
+- [x] AI troubleshooting cards (not connected, 401, 403)
+- [x] Hero description updated (optional AI mention)
+- [x] Tech Stack card: Gemini + OpenRouter
 
 ## Responsive Design
 - [x] Mobile breakpoint at 900px

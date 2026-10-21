@@ -111,13 +111,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 let aiProvider = "gemini";
 let geminiApiKey = "";
 let geminiModel = DEFAULT_GEMINI_MODEL;
+let openrouterApiKey = ""; // BYOK override (takes priority over the Firebase shared key)
+let openrouterModel = "openrouter/auto";
+
+// Models a user can pick when bringing their own OpenRouter key.
+// "auto" routes to OpenRouter's recommended default for the account.
+const OR_USER_MODELS = ["openrouter/auto", "meta-llama/llama-4-mai", "google/gemini-2.0-flash-exp:free", "qwen/qwen3-8b:free", "nvidia/nemotron-3-ultra-550b-a55b:free"];
 
 async function loadLocalProviderConfig() {
   try {
-    const local = await chrome.storage.local.get(["aiProvider", "geminiApiKey", "geminiModel"]);
+    const local = await chrome.storage.local.get(["aiProvider", "geminiApiKey", "geminiModel", "openrouterApiKey", "openrouterModel"]);
     if (local.aiProvider) aiProvider = String(local.aiProvider);
     geminiApiKey = local.geminiApiKey ? String(local.geminiApiKey).trim() : "";
     geminiModel = local.geminiModel ? String(local.geminiModel).trim() : DEFAULT_GEMINI_MODEL;
+    openrouterApiKey = local.openrouterApiKey ? String(local.openrouterApiKey).trim() : "";
+    openrouterModel = local.openrouterModel ? String(local.openrouterModel).trim() : "openrouter/auto";
   } catch (e) {
     console.warn("Failed to load local provider config:", e);
   }
@@ -129,6 +137,8 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if ("aiProvider" in changes) aiProvider = String(changes.aiProvider.newValue || "gemini");
   if ("geminiApiKey" in changes) geminiApiKey = String(changes.geminiApiKey.newValue || "").trim();
   if ("geminiModel" in changes) geminiModel = String(changes.geminiModel.newValue || DEFAULT_GEMINI_MODEL).trim() || DEFAULT_GEMINI_MODEL;
+  if ("openrouterApiKey" in changes) openrouterApiKey = String(changes.openrouterApiKey.newValue || "").trim();
+  if ("openrouterModel" in changes) openrouterModel = String(changes.openrouterModel.newValue || "openrouter/auto").trim() || "openrouter/auto";
 });
 
 async function loadConfig(force = false) {
@@ -168,7 +178,8 @@ function normalizeModel(m) {
 }
 
 async function ensureConfig() {
-  if (!OPENROUTER_API_KEY) await loadConfig(true);
+  // If the user has brought their own key, there is no need to load Firebase.
+  if (!openrouterApiKey && !OPENROUTER_API_KEY) await loadConfig(true);
   else await loadConfig(false);
 }
 
@@ -377,36 +388,40 @@ async function callAI(prompt, retries = 1, maxTokens = 2048) {
   return _callOpenRouter(prompt, retries, maxTokens);
 }
 
-async function _callOpenRouter(prompt, retries = 1, maxTokens = 1024) {
-  if (!OPENROUTER_API_KEY) {
-    return { ok: false, error: "The shared AI key is not available. Use Gemini instead, or ask the maintainer to add openrouterApiKey under config/ai (free :free models need no credits)." };
+async function _callOpenRouter(prompt, retries = 1, maxTokens = 1024, overrides = null) {
+  // Prefer a user-supplied key (BRING YOUR OWN) over the shared Firebase key.
+  const apiKey = String((overrides && overrides.apiKey) || openrouterApiKey || OPENROUTER_API_KEY).trim();
+  if (!apiKey) {
+    return { ok: false, error: "No OpenRouter API key available. Add your own key in the popup (Bring Your Own Key), or ask the maintainer to add openrouterApiKey under config/ai." };
   }
+  const model = String((overrides && overrides.model) || openrouterModel || "").trim() || "openrouter/auto";
   let lastErr = "no free model available";
-  for (let m = 0; m < MODEL_LIST.length; m++) {
+  const MODELS = OR_USER_MODELS.includes(model) ? [model] : [model];
+  for (let m = 0; m < MODELS.length; m++) {
     const idx = (workingModelIdx + m) % MODEL_LIST.length;
-    const model = MODEL_LIST[idx];
+    const candidate = MODELS[m];
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         const response = await fetch(OPENROUTER_API_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+            "Authorization": `Bearer ${apiKey}`,
             "HTTP-Referer": "https://maya.adityauniversity.in",
             "X-Title": "Maya AutoPilot"
           },
           body: JSON.stringify({
-            model,
+            model: candidate,
             messages: [{ role: "user", content: prompt }],
             temperature: 0,
             max_tokens: maxTokens
           })
         });
         if (!response.ok) {
-          lastErr = `API ${response.status} (model=${model}): ` + (await response.text()).slice(0, 300);
+          lastErr = `API ${response.status} (model=${candidate}): ` + (await response.text()).slice(0, 300);
           const status = response.status;
           if (status === 402 || status === 404) {
-            console.warn(`Free model unusable (${model}), trying next:`, lastErr.slice(0, 160));
+            console.warn(`Free model unusable (${candidate}), trying next:`, lastErr.slice(0, 160));
             break; // next model, no point retrying this one
           }
           if (status === 429 && attempt < retries) {
@@ -419,13 +434,13 @@ async function _callOpenRouter(prompt, retries = 1, maxTokens = 1024) {
         const data = await response.json();
         const answer = extractText(data.choices?.[0]?.message);
         if (!answer) {
-          lastErr = "Empty response (" + model + "): " + JSON.stringify(data).slice(0, 300);
+          lastErr = "Empty response (" + candidate + "): " + JSON.stringify(data).slice(0, 300);
           break; // try next model
         }
         workingModelIdx = idx; // stick with the model that works
-        return { ok: true, answer, raw: data, model, provider: "openrouter" };
+        return { ok: true, answer, raw: data, model: candidate, provider: "openrouter" };
       } catch (e) {
-        lastErr = `${model}: ` + String(e && e.message ? e.message : e);
+        lastErr = `${candidate}: ` + String(e && e.message ? e.message : e);
         if (attempt < retries) await new Promise((r) => setTimeout(r, 800));
       }
     }
@@ -981,7 +996,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         const prompt = buildPrompt(question, options);
         const result = provider === "gemini"
           ? await callGemini(prompt, 0, 256, { apiKey: msg.apiKey, model: msg.model })
-          : await (async () => { await ensureConfig(); return _callOpenRouter(prompt, 0, 128); })();
+          : await (async () => { await ensureConfig(); return _callOpenRouter(prompt, 0, 128, { apiKey: msg.apiKey, model: msg.model }); })();
         if (!result.ok) {
           console.warn(`AI_TEST ${provider} failed:`, result.error);
           sendResponse({ ok: false, error: result.error, provider });

@@ -63,19 +63,22 @@
       min-height: 100vh;
     }
 
-    /* Full-bleed centered sections */
+    /* Full-bleed centered sections.
+       Sections size to their CONTENT, not the viewport - a forced 100vh on
+       every block stretched short content and made everything feel jammed
+       together. Padding now provides the breathing room instead. */
     .hero,
     .download-bar,
     .content .section {
       width: 100%;
-      min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 64px;
+      padding: 128px 64px;
     }
 
     .hero {
+      min-height: 100vh;
       text-align: center;
       background: #faf8f5;
       border-bottom: 1px solid rgba(0,0,0,0.06);
@@ -85,6 +88,7 @@
     }
 
     .download-bar {
+      min-height: auto;
       background: #1a1a1a;
       color: #fff;
       opacity: 0;
@@ -98,7 +102,15 @@
       transform: translateY(20px);
       animation: fadeUp 0.8s ease-out forwards;
       flex-direction: column;
+      padding: 140px 64px 120px;
+      margin-top: 48px;
+      border-top: 2px solid rgba(0,0,0,0.08);
     }
+
+    /* Hairline dividers give each block its own edge instead of letting
+       everything blur into one long column. */
+    .content .section + .section { border-top: 1px solid rgba(0,0,0,0.07); }
+    .content .section:nth-child(even) { background: #f5f2ed; }
 
     .content .section:nth-of-type(2) { animation-delay: 0.15s; }
     .content .section:nth-of-type(3) { animation-delay: 0.2s; }
@@ -110,12 +122,23 @@
     .hero-inner,
     .download-bar-inner,
     .section-inner {
-      max-width: 1200px;
+      max-width: 1280px;
       width: 100%;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
       align-items: center;
+    }
+
+    /* Inner blocks that can breathe wider than the section shell. */
+    .zigzag-layout,
+    .usage-grid,
+    .steps-row,
+    .tech-grid,
+    .troubleshoot-grid,
+    .provider-grid,
+    .ai-steps-grid {
+      max-width: 1320px;
     }
 
     .download-bar-inner {
@@ -165,10 +188,10 @@
 
     .hero h1 {
       font-family: 'Space Grotesk', sans-serif;
-      font-size: 5.5rem;
+      font-size: clamp(3.5rem, 8.5vw, 7.5rem);
       font-weight: 700;
       letter-spacing: -0.05em;
-      line-height: 1;
+      line-height: 0.92;
       margin-bottom: 28px;
       color: #1a1a1a;
     }
@@ -519,12 +542,26 @@
       margin-top: 8px;
     }
 
+    /* Positional layout used for Feature section */
+    .section-inner.sticky-split {
+      display: grid;
+      grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+      gap: 64px;
+      align-items: start;
+    }
+    .sticky-split .section-header,
+    .sticky-split .section-intro { text-align: left; align-items: flex-start; }
+
+    /* Section marker removed */
+
     /* Usage Section - better left space usage */
     .usage-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 32px;
       width: 100%;
+      max-width: 1320px;
+      margin: 0 auto;
     }
 
     .usage-card {
@@ -535,6 +572,11 @@
       transition: all 0.3s ease;
       position: relative;
       overflow: hidden;
+      /* Flex column + a pushed-down badge makes both cards align: headings
+         start at the top, the tag sits on the same baseline at the bottom,
+         whatever the paragraph length is. */
+      display: flex;
+      flex-direction: column;
     }
 
     .usage-card::before {
@@ -569,6 +611,7 @@
       font-weight: 600;
       letter-spacing: -0.02em;
       color: #1a1a1a;
+      text-align: center;
     }
 
     .usage-card p {
@@ -585,7 +628,8 @@
       font-size: 0.9rem;
       font-weight: 600;
       color: #1a1a1a;
-      margin-top: 8px;
+      margin-top: auto;
+      align-self: center;
     }
 
     /* Steps - horizontal full width */
@@ -593,7 +637,7 @@
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 20px;
-      max-width: 1100px;
+      max-width: 1320px;
       margin: 0 auto;
       width: 100%;
     }
@@ -644,9 +688,9 @@
     /* Tech Grid */
     .tech-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 16px;
-      max-width: 1000px;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      max-width: 1320px;
       margin: 0 auto;
       width: 100%;
     }
@@ -698,7 +742,7 @@
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 24px;
-      max-width: 1000px;
+      max-width: 1320px;
       margin: 0 auto;
       width: 100%;
     }
@@ -801,87 +845,272 @@
       letter-spacing: -0.01em;
     }
 
+    /* AI Configuration section */
+    .provider-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      width: 100%;
+      max-width: 1320px;
+      margin: 0 auto 40px;
+    }
+    .provider-card {
+      background: #fff;
+      border-radius: 24px;
+      padding: 36px 32px;
+      border: 1px solid rgba(0,0,0,0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      transition: all 0.3s ease;
+    }
+    .provider-card:hover {
+      box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+      transform: translateY(-4px);
+    }
+    .provider-badge {
+      width: fit-content;
+      padding: 6px 16px;
+      border-radius: 100px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .provider-badge--gemini { background: #e3f2fd; color: #1565c0; }
+    .provider-badge--openrouter { background: #e8f5e9; color: #2e7d32; }
+    .provider-card p {
+      color: #555;
+      font-size: 1rem;
+      line-height: 1.6;
+      margin: 0;
+    }
+    .provider-list {
+      padding-left: 0;
+      margin: 0;
+      list-style: none;
+      margin-top: auto;
+      border-top: 1px solid rgba(0,0,0,0.04);
+      padding-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .provider-list li {
+      color: #555;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      margin: 0;
+      padding-left: 20px;
+      position: relative;
+    }
+    .provider-list li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.25em;
+      width: 6px;
+      height: 6px;
+      background: #1a1a1a;
+      border-radius: 50%;
+    }
+    .provider-list a { color: #1a1a1a; font-weight: 600; border-bottom: 2px solid transparent; }
+    .provider-list a:hover { border-bottom-color: #1a1a1a; }
+    .ai-steps { margin: 0 auto 40px; }
+    .ai-steps h3 { text-align: center; color: #1a1a1a; }
+    .ai-steps-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+      margin-top: 24px;
+    }
+    .ai-step {
+      background: #fff;
+      border-radius: 20px;
+      padding: 28px 24px;
+      border: 1px solid rgba(0,0,0,0.04);
+      position: relative;
+    }
+    .ai-step-num {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      background: #1a1a1a;
+      color: #fff;
+      font-weight: 700;
+      font-size: 1.1rem;
+      margin-bottom: 14px;
+    }
+    .nowrap { white-space: nowrap; }
+    .pill {
+      display: inline-block;
+      padding: 3px 9px;
+      border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 100px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #1a1a1a;
+      background: #fff;
+      white-space: nowrap;
+      vertical-align: middle;
+      letter-spacing: -0.01em;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+    }
+    .ai-step-body strong {
+      color: #1a1a1a;
+      display: block;
+      margin-bottom: 6px;
+      font-size: 1rem;
+    }
+    .ai-step-body p {
+      color: #555;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      margin: 0;
+    }
+    .ai-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      width: 100%;
+      max-width: 1320px;
+      margin: 44px auto 0;
+      padding: 18px 22px;
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.07);
+      border-radius: 16px;
+    }
+    .ai-note-icon {
+      flex: 0 0 auto;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 9px;
+      background: #f0efeb;
+      color: #1a1a1a;
+      margin-top: 1px;
+    }
+    .ai-note p {
+      margin: 0;
+      color: #555;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      text-align: left;
+    }
+    .ai-note code {
+      background: #f0efeb;
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-size: 0.85em;
+    }
+    .ai-optional {
+      display: grid;
+      grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+      gap: 64px;
+      align-items: start;
+      width: 100%;
+      max-width: 1320px;
+      margin: 80px auto 0;
+      padding-top: 64px;
+      border-top: 1px solid rgba(0,0,0,0.08);
+    }
+    .ai-optional-head { position: sticky; top: 32px; }
+    .ai-optional-head .section-label { display: block; text-align: left; margin-bottom: 10px; }
+    .ai-optional-head h3 { text-align: left; color: #1a1a1a; margin: 0 0 14px; }
+    .ai-optional-head p { text-align: left; margin: 0; color: #555; line-height: 1.65; }
+    .ai-toggle-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .ai-toggle-item {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px 24px;
+      border: 1px solid rgba(0,0,0,0.04);
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      transition: all 0.2s ease;
+    }
+    .ai-toggle-item:hover { border-color: rgba(0,0,0,0.08); transform: translateY(-2px); }
+    .ai-toggle-tag {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 5px 10px;
+      border-radius: 8px;
+      flex: 0 0 auto;
+      color: #fff;
+    }
+    .ai-toggle-tag--off { background: #888; }
+    .ai-toggle-tag--on { background: #008730; }
+    .ai-toggle-tag--both { background: #6f42c1; }
+    .ai-toggle-item > div strong {
+      color: #1a1a1a;
+      display: block;
+      margin-bottom: 4px;
+      font-size: 1rem;
+    }
+    .ai-toggle-item > div p {
+      color: #555;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      margin: 0;
+    }
+    @media (max-width: 900px) {
+      .provider-grid { grid-template-columns: 1fr; }
+      .ai-steps-grid { grid-template-columns: 1fr; }
+    }
+
     @keyframes fadeUp {
       to { opacity: 1; transform: translateY(0); }
     }
 
     @media (max-width: 900px) {
-      .hero,
-      .download-bar,
-      .content .section {
-        padding: 48px 24px;
-        min-height: auto;
-      }
-
-      .hero h1 { font-size: 3.5rem; }
-
-      .hero-inner {
-        grid-template-columns: 1fr;
-        gap: 40px;
-        text-align: center;
-      }
-
-      .hero-text {
-        align-items: center;
-        text-align: center;
-      }
-
-      .hero-text h1,
-      .hero-text p {
-        text-align: center;
-      }
-
-      .hero-meta {
-        justify-content: center;
-      }
-
-      .hero-visual img {
-        max-height: 320px;
-      }
-
-      .download-layout {
-        flex-direction: column;
-        gap: 40px;
-      }
-
-      .download-visual,
-      .download-content {
-        flex: 0 0 100%;
-        width: 100%;
-      }
-
-      .download-visual img {
-        max-height: 320px;
-      }
-
-      .download-content {
-        align-items: center;
-        text-align: center;
-      }
-
-      .zigzag-layout {
-        flex-direction: column !important;
-        gap: 32px;
-      }
-
-      .zigzag-image,
-      .zigzag-content {
-        flex: 0 0 100%;
-        width: 100%;
-        text-align: center;
-        align-items: center;
-      }
-
-      .zigzag-image img {
-        max-height: 320px;
-      }
-
+      .hero, .download-bar, .content .section { padding: 48px 24px 56px; min-height: auto; }
+      .hero { min-height: 100vh; padding-top: 72px; padding-bottom: 64px; padding-left: 28px; padding-right: 28px; align-items: stretch; }
+      .hero h1 { font-size: clamp(2.8rem, 10vw, 4.5rem); line-height: 0.95; letter-spacing: -0.04em; }
+      .hero p { font-size: 1.05rem; max-width: 420px; margin-left: auto; margin-right: auto; }
+      .hero-inner { display: grid; grid-template-columns: 1fr; grid-template-rows: auto 1fr; gap: 28px; text-align: center; justify-content: center; align-items: center; margin: 0 auto; width: 100%; padding: 0 12px; }
+      .hero-text { align-items: center; text-align: center; }
+      .hero-text h1, .hero-text p { text-align: center; }
+      .hero-visual { min-height: 0; }
+      .hero-visual img { max-height: 100%; width: 100%; object-fit: contain; }
+      .hero-meta { justify-content: center; gap: 16px; font-size: 0.8rem; flex-wrap: wrap; }
+      .download-bar { margin-top: 48px; }
+      .download-layout { flex-direction: column; gap: 32px; align-items: center; justify-content: center; text-align: center; }
+      .download-visual, .download-content { flex: 0 0 100%; width: 100%; align-items: center; text-align: center; }
+      .download-visual img { max-height: 220px; }
+      .zigzag-layout { flex-direction: column !important; gap: 32px; }
+      .zigzag-image, .zigzag-content { flex: 0 0 100%; width: 100%; text-align: center; align-items: center; }
+      .zigzag-image img { max-height: 260px; }
+      .zigzag-content .section-header { text-align: center; align-items: center; }
+      .zigzag-content .section-label { text-align: center; }
+      .zigzag-content p, .zigzag-content a { text-align: center; }
       .usage-grid { grid-template-columns: 1fr; gap: 24px; max-width: 100%; }
-      .two-col { grid-template-columns: 1fr; gap: 32px; max-width: 100%; }
-      .steps-row { grid-template-columns: 1fr; max-width: 100%; }
+      .provider-grid { grid-template-columns: 1fr; max-width: 100%; }
+      .ai-steps-grid { grid-template-columns: 1fr; max-width: 100%; }
+      .sticky-split { grid-template-columns: 1fr !important; gap: 36px !important; }
+      .tech-grid { grid-template-columns: 1fr; max-width: 100%; }
+      .ai-optional { grid-template-columns: 1fr; gap: 36px; margin-top: 48px; padding-top: 48px; }
+      .ai-optional-head { position: static; }
+      .ai-note { flex-direction: column; gap: 10px; }
       .troubleshoot-grid { grid-template-columns: 1fr; }
+      .steps-row { grid-template-columns: 1fr; max-width: 100%; gap: 14px; }
+      .two-col { grid-template-columns: 1fr; gap: 32px; max-width: 100%; }
+      .section-inner { padding: 0; }
       .section h2 { font-size: 2rem; }
-      .section-header { margin-bottom: 32px; }
+      .section-header { margin-bottom: 28px; }
+      .section-marker { display: none; }
+      .usage-card { padding: 28px 24px; }
+      .usage-card-header h3 { font-size: 1.25rem; }
     }
   </style>
 </head>
@@ -891,7 +1120,7 @@
       <div class="hero-inner">
         <div class="hero-text">
           <h1>Maya AutoPilot</h1>
-          <p>Zero-input Chrome extension for Maya assessments. Answers captured directly from the page. No APIs. No drift.</p>
+          <p>Zero-input Chrome extension for Maya assessments. Answers captured from the page. Optional AI fallback with your own API key.</p>
           <div class="hero-meta">
             <span><span class="dot"></span> v1.3.10</span>
             <span><span class="dot"></span> Chrome & Edge</span>
@@ -922,7 +1151,7 @@
     <div class="content">
       <div class="section" id="how-to-use">
         <div class="section-inner">
-          <div class="zigzag-layout">
+            <div class="zigzag-layout">
             <div class="zigzag-image">
               <img src="assets/how to use.png" alt="How to Use">
             </div>
@@ -942,7 +1171,7 @@
                 </div>
                 <div class="usage-card">
                   <div class="usage-card-header">
-                    <h3>Emp-Skills Deep-Dive</h3>
+                    <h3>Deep-Dive</h3>
                   </div>
                   <p>Open a deep-dive test. Each question is answered and the <strong>Next Question</strong> button advances the flow automatically.</p>
                   <span class="highlight">Question after question</span>
@@ -955,7 +1184,7 @@
 
       <div class="section" id="setup">
         <div class="section-inner">
-          <div class="section-header">
+            <div class="section-header">
             <span class="section-label">Installation</span>
             <h2>Setup</h2>
           </div>
@@ -987,13 +1216,120 @@
         </div>
       </div>
 
-      <div class="section">
+      <div class="section" id="ai-config">
         <div class="section-inner">
-          <div class="section-header">
-            <span class="section-label">Features</span>
-            <h2>What It Does</h2>
+            <div class="section-header">
+            <span class="section-label">Bring Your Own API</span>
+            <h2>AI Configuration</h2>
           </div>
-          <p class="section-intro">Built for speed, accuracy, and complete privacy.</p>
+          <p class="section-intro">The extension works with <strong>two AI providers</strong> - Google Gemini and OpenRouter. It is fully bring-your-own-key: you paste your own API key, pick a model, and press <strong>Connect</strong>. No shared key, no sign-up, no key ever leaves your browser.</p>
+
+          <div class="provider-grid">
+            <div class="provider-card">
+              <div class="provider-badge provider-badge--gemini">Google Gemini</div>
+              <p>Uses the official Google Generative AI endpoint with your personal API key. The default provider - best free-tier speed and the widest model range.</p>
+              <ul class="provider-list">
+                <li>Get a key at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com/app/apikey</a> - it starts with <code>AIza</code></li>
+                <li>Free tier is enough for a full test run</li>
+                <li>Models: Flash, Flash Lite and Pro - newest first</li>
+                <li>Retired models are skipped automatically</li>
+              </ul>
+            </div>
+            <div class="provider-card">
+              <div class="provider-badge provider-badge--openrouter">OpenRouter</div>
+              <p>Routes requests through OpenRouter, so one key gives you access to hundreds of models - including the <code>:free</code> ones that cost nothing.</p>
+              <ul class="provider-list">
+                <li>Get a key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a> - it starts with <code>sk-or-</code></li>
+                <li>Free <code>:free</code> models need no credits</li>
+                <li>Type any model ID, e.g. <code>openrouter/auto</code></li>
+                <li>Automatic retry across the free model list</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="ai-steps">
+            <h3>How to connect your key</h3>
+            <div class="ai-steps-grid">
+              <div class="ai-step">
+                <div class="ai-step-num">1</div>
+                <div class="ai-step-body">
+                  <strong>Open the popup</strong>
+                  <p>Click the Maya AutoPilot icon in your toolbar. Everything happens in one panel - no config files, no JSON editing.</p>
+                </div>
+              </div>
+              <div class="ai-step">
+                <div class="ai-step-num">2</div>
+                <div class="ai-step-body">
+                  <strong>Pick your provider</strong>
+                  <p><span class="nowrap">Press <span class="pill">Use Gemini</span> or <span class="pill">Use OpenRouter</span></span>. Gemini is the default - key starts with <code>AIza</code>. OpenRouter - key starts with <code>sk-or-</code>.</p>
+                </div>
+              </div>
+              <div class="ai-step">
+                <div class="ai-step-num">3</div>
+                <div class="ai-step-body">
+                  <strong>Paste your key</strong>
+                  <p>Drop your key into the password field, then pick a model from the dropdown or type your own model ID.</p>
+                </div>
+              </div>
+              <div class="ai-step">
+                <div class="ai-step-num">4</div>
+                <div class="ai-step-body">
+                  <strong>Press Connect</strong>
+                  <p>The extension sends a real test request. Only a key that works gets saved - a bad key never overwrites a good one.</p>
+                </div>
+              </div>
+            </div>
+            <div class="ai-note">
+              <span class="ai-note-icon" aria-hidden="true">
+                <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>
+              </span>
+              <p>Your key is stored only in <code>chrome.storage.local</code> on your own machine. It is sent only to the provider you selected, and it is never bundled into the extension, the download, or the public repo.</p>
+            </div>
+          </div>
+
+          <div class="ai-optional">
+            <div class="ai-optional-head">
+              <span class="section-label">Optional</span>
+              <h3>Do I even need an API key?</h3>
+              <p>No. The extension's default path captures every question and answer from the page's own network data and from a shared answer bank, so most tests are already fully answered before any AI is involved. A key only matters when a question is brand new and nobody has answered it yet - the AI is the fallback, not the requirement.</p>
+            </div>
+            <div class="ai-toggle-list">
+              <div class="ai-toggle-item">
+                <span class="ai-toggle-tag ai-toggle-tag--off">Skip</span>
+                <div>
+                  <strong>Skip it entirely</strong>
+                  <p>Page capture plus the shared answer bank still fills the test. The AI panel stays greyed out and nothing is sent anywhere.</p>
+                </div>
+              </div>
+              <div class="ai-toggle-item">
+                <span class="ai-toggle-tag ai-toggle-tag--on">Recommended</span>
+                <div>
+                  <strong>Connect one provider</strong>
+                  <p>Adds an AI fallback for questions that are new to the bank, plus a <strong>Test AI</strong> button so you can confirm the connection yourself.</p>
+                </div>
+              </div>
+              <div class="ai-toggle-item">
+                <span class="ai-toggle-tag ai-toggle-tag--both">Both</span>
+                <div>
+                  <strong>Switch any time</strong>
+                  <p>Keep a Gemini key and an OpenRouter key saved at once, then flip between them with one click. Handy when one hits a quota.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="features">
+        <div class="section-inner sticky-split">
+          <div>
+            <div class="section-header">
+              <span class="section-label">Features</span>
+              <h2>What It Does</h2>
+            </div>
+            <p class="section-intro">Built for speed, accuracy, and complete privacy.</p>
+            <img src="assets/woman-portrait.png" alt="Woman sitting with chin on hand" style="width:100%;max-width:420px;margin-top:24px;display:block;">
+          </div>
           <div class="tech-grid">
             <div class="tech-card">
               <div class="tech-name">Zero Input Required</div>
@@ -1025,7 +1361,7 @@
 
       <div class="section">
         <div class="section-inner">
-          <div class="section-header">
+            <div class="section-header">
             <span class="section-label">Tech Stack</span>
             <h2>What I Used</h2>
           </div>
@@ -1044,12 +1380,8 @@
               <div class="tech-desc">Questions and answers are remembered for everyone, so repeat questions are answered instantly</div>
             </div>
             <div class="tech-card">
-              <div class="tech-name">OpenRouter AI</div>
-              <div class="tech-desc">Optional answer generation when cache is empty</div>
-            </div>
-            <div class="tech-card">
-              <div class="tech-name">Vanilla JavaScript</div>
-              <div class="tech-desc">No build tools, no dependencies, pure JS</div>
+              <div class="tech-name">Google Gemini + OpenRouter</div>
+              <div class="tech-desc">Optional AI fallback when cache misses. Bring your own API key for either provider. No shared key required.</div>
             </div>
           </div>
         </div>
@@ -1057,7 +1389,7 @@
 
       <div class="section">
         <div class="section-inner">
-          <div class="section-header">
+            <div class="section-header">
             <span class="section-label">Troubleshooting</span>
             <h2>Common Fixes</h2>
           </div>
@@ -1095,6 +1427,18 @@
             </div>
             <div class="troubleshoot-card">
               <div class="troubleshoot-body">
+                <h3>AI shows "Not connected"</h3>
+                <p>Paste your key, pick a model, then click <strong>Connect</strong>. The key is only saved when the test request passes - a bad key never overwrites a working one.</p>
+              </div>
+            </div>
+            <div class="troubleshoot-card">
+              <div class="troubleshoot-body">
+                <h3>AI key rejected (401 / 403)</h3>
+                <p>Check the key in <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" style="font-weight:600;">Google AI Studio</a> or <a href="https://openrouter.ai/keys" target="_blank" rel="noopener" style="font-weight:600;">OpenRouter Keys</a>. Make sure you selected the correct provider (Gemini vs OpenRouter) in the popup.</p>
+              </div>
+            </div>
+            <div class="troubleshoot-card">
+              <div class="troubleshoot-body">
                 <h3>Old version persists</h3>
                 <p>Remove all "Maya AutoPilot" entries from <code>chrome://extensions</code>, unzip the new folder, and load it again.</p>
               </div>
@@ -1105,7 +1449,7 @@
 
       <div class="section">
         <div class="section-inner">
-          <div class="zigzag-layout reverse">
+            <div class="zigzag-layout reverse">
             <div class="zigzag-image">
               <img src="assets/contibutons.png" alt="Contributors">
             </div>
@@ -1129,7 +1473,7 @@
 
       <div class="section">
         <div class="section-inner">
-          <div class="zigzag-layout">
+            <div class="zigzag-layout">
             <div class="zigzag-image">
               <img src="assets/issues.png" alt="Report Issues">
             </div>
@@ -1147,7 +1491,7 @@
 
       <div class="section">
         <div class="section-inner">
-          <div class="zigzag-layout reverse">
+            <div class="zigzag-layout reverse">
             <div class="zigzag-image">
               <img src="assets/community.png" alt="Contribute">
             </div>
